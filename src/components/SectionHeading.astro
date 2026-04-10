@@ -1,0 +1,24 @@
+---
+import { withBase } from '../config/site';
+
+interface Props {
+  eyebrow?: string;
+  title: string;
+  actionHref?: string;
+  actionLabel?: string;
+}
+
+const { eyebrow, title, actionHref, actionLabel } = Astro.props;
+---
+
+<div class="section-header">
+  <div>
+    {eyebrow && <span class="eyebrow">{eyebrow}</span>}
+    <h2 class="title-2">{title}</h2>
+  </div>
+  {actionHref && actionLabel && (
+    <a class="btn btn-outline" href={withBase(actionHref)}>
+      {actionLabel}
+    </a>
+  )}
+</div>

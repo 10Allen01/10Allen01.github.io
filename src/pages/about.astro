@@ -1,0 +1,42 @@
+---
+import BaseLayout from '../layouts/BaseLayout.astro';
+import { sectionMeta, withBase } from '../config/site';
+
+const sections = Object.entries(sectionMeta);
+---
+
+<BaseLayout title="About" description="About the author.">
+  <section class="shell page-intro">
+    <div class="grid">
+      <div class="page-intro__copy">
+        <span class="eyebrow">About</span>
+        <h1 class="title-1">Hello, I'm Allen.</h1>
+        <p class="summary">I write about technology, network security, and practical tools.</p>
+      </div>
+    </div>
+  </section>
+
+  <section class="shell section">
+    <div class="article-prose" style="padding-top: 0;">
+      <p>
+        Welcome to my personal archive. This site serves as a public notebook where I document my journey in software development and security research. It's built to be a fast, accessible, and structured place to share what I learn.
+      </p>
+      
+      <h2 class="title-2" style="margin: 2em 0 1em;">What I write about</h2>
+      
+      <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 24px; margin-top: 32px;">
+        {sections.map(([id, meta]) => (
+          <a href={withBase(`/blog/?section=${id}`)} style="display: block; padding: 24px; border: 1px solid var(--border); border-radius: 8px; background: var(--surface-1); transition: border-color var(--dur) var(--ease);">
+            <h3 class="title-2" style="font-size: 1.2rem; margin: 0 0 8px;">{meta.label}</h3>
+            <p style="margin: 0; color: var(--text-2); font-size: 0.95rem; line-height: 1.6;">{meta.description}</p>
+          </a>
+        ))}
+      </div>
+
+      <h2 class="title-2" style="margin: 2em 0 1em;">Get in touch</h2>
+      <p>
+        If you have any questions or just want to say hi, feel free to reach out via <a href="mailto:hello@example.com">email</a> or find me on <a href="https://github.com/your-name">GitHub</a> and <a href="https://x.com/your-name">X (Twitter)</a>.
+      </p>
+    </div>
+  </section>
+</BaseLayout>

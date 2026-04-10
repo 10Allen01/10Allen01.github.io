@@ -1,0 +1,31 @@
+---
+import type { CollectionEntry } from 'astro:content';
+import { sectionMeta, withBase } from '../config/site';
+import { formatDate } from '../lib/posts';
+
+interface Props {
+  post: CollectionEntry<'posts'>;
+  featured?: boolean;
+}
+
+const { post, featured = false } = Astro.props;
+const meta = sectionMeta[post.data.section];
+const href = withBase(`/blog/${post.slug}/`);
+const cover = post.data.cover ? withBase(post.data.cover) : undefined;
+---
+
+<article class:list={['post-card', featured && 'featured']} data-card data-section={post.data.section} data-title={post.data.title.toLowerCase()} data-tags={post.data.tags.join(' ').toLowerCase()}>
+  <a class="post-card__media" href={href} aria-label={post.data.title}>
+    {cover && <img src={cover} alt={post.data.coverAlt || post.data.title} loading={featured ? 'eager' : 'lazy'} />}
+  </a>
+  <div>
+    <div class="post-card__meta">
+      <span>{meta.label}</span>
+      <span>{formatDate(post.data.publishedAt)}</span>
+    </div>
+    <h3 class="post-card__title">
+      <a href={href}>{post.data.title}</a>
+    </h3>
+    <p class="post-card__excerpt">{post.data.excerpt}</p>
+  </div>
+</article>

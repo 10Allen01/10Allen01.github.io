@@ -1,0 +1,118 @@
+---
+import PostCard from '../../components/PostCard.astro';
+import BaseLayout from '../../layouts/BaseLayout.astro';
+import { getAllTags, getPublishedPosts } from '../../lib/posts';
+
+const posts = await getPublishedPosts();
+const tags = getAllTags(posts);
+---
+
+<BaseLayout title="Archive" description="Complete index of published writing and visual work.">
+  <section class="shell page-intro">
+    <div class="grid">
+      <div class="page-intro__copy">
+        <span class="eyebrow">Index</span>
+        <h1 class="title-1">Archive</h1>
+      </div>
+    </div>
+  </section>
+
+  <section class="shell section">
+    {posts.length > 0 ? (
+      <>
+        <div class="filter-bar">
+          <label class="field">
+            <span>Search</span>
+            <input id="post-search" type="search" placeholder="Type to filter..." />
+          </label>
+          
+          <label class="field">
+            <span>Section</span>
+            <select id="section-filter">
+              <option value="all">All sections</option>
+              <option value="ai">AI</option>
+              <option value="security">Cyber Security</option>
+              <option value="programming">Programming</option>
+              <option value="daily">Daily</option>
+              <option value="tools">Tools</option>
+            </select>
+          </label>
+        </div>
+
+        <div class="post-grid" id="post-grid">
+          {posts.map((post) => (
+            <PostCard post={post} />
+          ))}
+        </div>
+
+        <div class="empty-state" id="empty-state" hidden>
+          No matches found for the current filter.
+        </div>
+      </>
+    ) : (
+      <div class="empty-state">Nothing published yet.</div>
+    )}
+  </section>
+
+  <script is:inline>
+    const searchInput = document.querySelector('#post-search');
+    const sectionFilter = document.querySelector('#section-filter');
+    const cards = Array.from(document.querySelectorAll('[data-card]'));
+    const emptyState = document.querySelector('#empty-state');
+
+    const applyFilters = () => {
+      const query = searchInput instanceof HTMLInputElement ? searchInput.value.trim().toLowerCase() : '';
+      const section = sectionFilter instanceof HTMLSelectElement ? sectionFilter.value : 'all';
+      let visible = 0;
+
+      cards.forEach((card) => {
+        const sectionValue = card.getAttribute('data-section') || '';
+        const titleValue = card.getAttribute('data-title') || '';
+        const tagsValue = card.getAttribute('data-tags') || '';
+
+        const matchesQuery = !query || titleValue.includes(query) || tagsValue.includes(query);
+        const matchesSection = section === 'all' || sectionValue === section;
+        const isVisible = matchesQuery && matchesSection;
+
+        if (isVisible) {
+          card.style.display = 'flex';
+          visible += 1;
+        } else {
+          card.style.display = 'none';
+        }
+      });
+
+      if (emptyState instanceof HTMLElement) {
+        emptyState.hidden = visible > 0;
+      }
+    };
+
+    // Load initial section from URL if present
+    if (typeof window !== 'undefined') {
+      const params = new URLSearchParams(window.location.search);
+      const urlSection = params.get('section');
+      if (urlSection && sectionFilter instanceof HTMLSelectElement) {
+        const optionExists = Array.from(sectionFilter.options).some(opt => opt.value === urlSection);
+        if (optionExists) {
+          sectionFilter.value = urlSection;
+        }
+      }
+      applyFilters();
+    }
+
+    searchInput?.addEventListener('input', applyFilters);
+    sectionFilter?.addEventListener('change', () => {
+      // Update URL without reloading
+      if (sectionFilter instanceof HTMLSelectElement) {
+        const url = new URL(window.location.href);
+        if (sectionFilter.value === 'all') {
+          url.searchParams.delete('section');
+        } else {
+          url.searchParams.set('section', sectionFilter.value);
+        }
+        window.history.replaceState({}, '', url);
+      }
+      applyFilters();
+    });
+  </script>
+</BaseLayout>

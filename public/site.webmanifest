@@ -1,0 +1,17 @@
+{
+  "name": "Allen",
+  "short_name": "Allen",
+  "description": "A calm, cool-toned personal blog by Allen.",
+  "start_url": ".",
+  "display": "standalone",
+  "background_color": "#08131f",
+  "theme_color": "#08131f",
+  "icons": [
+    {
+      "src": "favicon.svg",
+      "sizes": "128x128",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    }
+  ]
+}

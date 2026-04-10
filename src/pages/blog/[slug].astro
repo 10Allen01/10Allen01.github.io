@@ -1,0 +1,74 @@
+---
+import { render } from 'astro:content';
+import PostCard from '../../components/PostCard.astro';
+import BaseLayout from '../../layouts/BaseLayout.astro';
+import { sectionMeta, withBase } from '../../config/site';
+import { formatDate, getPublishedPosts, getReadingTime, getRelatedPosts } from '../../lib/posts';
+
+export async function getStaticPaths() {
+  const posts = await getPublishedPosts();
+  return posts.map((post) => ({
+    params: { slug: post.slug },
+    props: { post, posts }
+  }));
+}
+
+const { post, posts } = Astro.props;
+const { Content } = await render(post);
+const relatedPosts = getRelatedPosts(posts, post, 2);
+const meta = sectionMeta[post.data.section];
+const cover = post.data.cover ? withBase(post.data.cover) : undefined;
+const imageList = post.data.images.length ? post.data.images : [];
+const hasInlinePostImages = /!\[[^\]]*\]\((?:\/images\/|https?:\/\/)/.test(post.body);
+---
+
+<BaseLayout title={post.data.title} description={post.data.excerpt} image={post.data.cover}>
+  <article>
+    <header class="article-header">
+      <div class="shell">
+        <div class="article-meta">
+          <span>{meta.label}</span>
+          <span>{formatDate(post.data.publishedAt)}</span>
+          <span>{getReadingTime(post)} min read</span>
+          {post.data.location && <span>{post.data.location}</span>}
+        </div>
+        <h1 class="title-1">{post.data.title}</h1>
+      </div>
+    </header>
+
+    {cover && (
+      <img class="article-media" src={cover} alt={post.data.coverAlt || post.data.title} />
+    )}
+
+    <div class="shell">
+      <div class="article-prose">
+        <Content />
+
+        {imageList.length > 0 && !hasInlinePostImages && (
+          <div class="post-grid" style="margin-top: 80px;">
+            {imageList.map((image) => (
+              <img src={withBase(image.src)} alt={image.alt || post.data.title} style="width: 100%; height: auto; margin: 0; border: 1px solid var(--border);" loading="lazy" />
+            ))}
+          </div>
+        )}
+
+        <div class="tag-cloud" style="margin-top: 80px; padding-top: 40px; border-top: 1px solid var(--border);">
+          {post.data.tags.map((tag) => (
+            <span class="tag">#{tag}</span>
+          ))}
+        </div>
+      </div>
+    </div>
+  </article>
+
+  {relatedPosts.length > 0 && (
+    <section class="shell section">
+      <h2 class="title-2" style="text-align: center; margin-bottom: 60px;">Related reading</h2>
+      <div class="post-grid">
+        {relatedPosts.map((relatedPost) => (
+          <PostCard post={relatedPost} />
+        ))}
+      </div>
+    </section>
+  )}
+</BaseLayout>

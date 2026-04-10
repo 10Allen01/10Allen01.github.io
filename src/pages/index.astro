@@ -1,0 +1,78 @@
+---
+import PostCard from '../components/PostCard.astro';
+import SectionHeading from '../components/SectionHeading.astro';
+import BaseLayout from '../layouts/BaseLayout.astro';
+import { siteConfig, sectionMeta, withBase } from '../config/site';
+import { getAllTags, getFeaturedPosts, getPublishedPosts } from '../lib/posts';
+
+const posts = await getPublishedPosts();
+const featuredPost = getFeaturedPosts(posts, 1)[0] ?? posts[0];
+const recentPosts = posts.filter(p => p.slug !== featuredPost?.slug).slice(0, 4);
+
+const sections = Object.entries(sectionMeta).map(([key, meta]) => {
+  return {
+    id: key,
+    ...meta,
+    count: posts.filter(p => p.data.section === key).length
+  };
+});
+---
+
+<BaseLayout>
+  <section class="shell page-intro">
+    <div class="grid">
+      <div class="page-intro__copy">
+        <span class="eyebrow">{siteConfig.hero.eyebrow}</span>
+        <h1 class="title-1">{siteConfig.hero.title}</h1>
+        <p class="summary">{siteConfig.hero.summary}</p>
+        
+        <div style="margin-top: 32px; display: flex; gap: 16px;">
+          <a class="btn btn-primary" href={withBase('/blog/')}>Archive</a>
+          <a class="btn btn-outline" href={withBase('/about/')}>About Me</a>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="shell section">
+    <SectionHeading eyebrow="Featured" title="Latest post" />
+    
+    {featuredPost ? (
+      <div class="post-grid">
+        <PostCard post={featuredPost} featured />
+      </div>
+    ) : (
+      <div class="empty-state">
+        Nothing published yet.
+      </div>
+    )}
+  </section>
+
+  {recentPosts.length > 0 && (
+    <section class="shell section">
+      <SectionHeading eyebrow="Recent" title="New posts" actionHref="/blog/" actionLabel="View all" />
+
+      <div class="post-grid">
+        {recentPosts.map((post) => (
+          <PostCard post={post} />
+        ))}
+      </div>
+    </section>
+  )}
+
+  <section class="shell section">
+    <SectionHeading eyebrow="Categories" title="Browse by topic" />
+
+    <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 24px;">
+      {sections.map((sec) => (
+        <a href={withBase(`/blog/?section=${sec.id}`)} style="display: flex; flex-direction: column; padding: 32px; background: var(--surface-1); border: 1px solid var(--border); border-radius: 12px; transition: border-color var(--dur) var(--ease);">
+          <h3 class="title-2" style="font-size: 1.4rem; margin-bottom: 12px;">{sec.label}</h3>
+          <p style="color: var(--text-2); font-size: 0.95rem; margin-bottom: 24px; line-height: 1.6; flex: 1; margin-top: 0;">{sec.description}</p>
+          <span style="display: inline-block; color: var(--text-3); font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.05em; font-weight: 500;">
+            {sec.count} {sec.count === 1 ? 'post' : 'posts'}
+          </span>
+        </a>
+      ))}
+    </div>
+  </section>
+</BaseLayout>

@@ -1,0 +1,204 @@
+---
+import BaseLayout from '../layouts/BaseLayout.astro';
+
+const starterBody = `## Overview
+
+Write the opening clearly and directly.
+
+{{images}}
+
+## Details
+
+Add the key points, examples, or analysis here.
+
+## Closing
+
+Finish with a concise conclusion.`;
+
+const isStudioAvailable = import.meta.env.DEV;
+---
+
+<BaseLayout title="Studio" description="Local-only publishing console.">
+  <Fragment slot="head">
+    <meta name="robots" content="noindex,nofollow,noarchive" />
+  </Fragment>
+
+  {isStudioAvailable ? (
+    <>
+      <section class="shell page-intro">
+        <div class="grid">
+          <div class="page-intro__copy">
+            <span class="eyebrow">Studio</span>
+            <h1 class="title-1">Local-only publishing</h1>
+            <p class="summary">This console exists only in local development. It publishes directly to the site's deployment source and is removed from the production build.</p>
+          </div>
+        </div>
+      </section>
+
+      <section class="shell studio-shell">
+        <div class="studio-grid">
+          <article class="studio-panel">
+            <div class="preview-card" style="margin-bottom: 32px;">
+              <span class="eyebrow">Deployment Source</span>
+              <div class="field-grid" style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 24px; margin-top: 16px;">
+                <label class="field" style="max-width: 100%;">
+                  <span>Owner</span>
+                  <input id="repo-owner" type="text" placeholder="your-github-name" style="width:100%; border: 1px solid var(--border); padding: 12px; border-radius: 4px;" />
+                </label>
+
+                <label class="field" style="max-width: 100%;">
+                  <span>Repository</span>
+                  <input id="repo-name" type="text" placeholder="your-repository" style="width:100%; border: 1px solid var(--border); padding: 12px; border-radius: 4px;" />
+                </label>
+
+                <label class="field" style="max-width: 100%;">
+                  <span>Branch</span>
+                  <input id="repo-branch" type="text" placeholder="main" value="main" style="width:100%; border: 1px solid var(--border); padding: 12px; border-radius: 4px;" />
+                </label>
+
+                <label class="field" style="max-width: 100%;">
+                  <span>Personal Access Token</span>
+                  <input id="repo-token" type="password" placeholder="ghp_..." autocomplete="off" style="width:100%; border: 1px solid var(--border); padding: 12px; border-radius: 4px;" />
+                </label>
+              </div>
+              <div style="display: flex; align-items: center; gap: 12px; margin-top: 20px;">
+                <span class="tag" id="repo-badge">Not configured</span>
+                <span style="color: var(--text-3); font-size: 0.85rem;">The token is stored only in this browser.</span>
+              </div>
+            </div>
+
+            <form class="studio-form" id="studio-form" data-starter-body={starterBody}>
+              <div class="field-grid" style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 24px;">
+                <label class="field" style="max-width: 100%;">
+                  <span>Title</span>
+                  <input id="title" name="title" type="text" placeholder="Post title" required style="width:100%; border: 1px solid var(--border); padding: 12px; border-radius: 4px;" />
+                </label>
+
+                <label class="field" style="max-width: 100%;">
+                  <span>Slug</span>
+                  <input id="slug" name="slug" type="text" placeholder="generated-from-title" style="width:100%; border: 1px solid var(--border); padding: 12px; border-radius: 4px;" />
+                </label>
+
+                <label class="field" style="max-width: 100%;">
+                  <span>Section</span>
+                  <select id="section" name="section" style="width:100%; border: 1px solid var(--border); padding: 12px; border-radius: 4px;">
+                    <option value="ai">AI</option>
+                    <option value="security">Cyber Security</option>
+                    <option value="programming">Programming</option>
+                    <option value="daily">Daily</option>
+                    <option value="tools">Tools</option>
+                  </select>
+                </label>
+
+                <label class="field" style="max-width: 100%;">
+                  <span>Publish date</span>
+                  <input id="publishedAt" name="publishedAt" type="date" required style="width:100%; border: 1px solid var(--border); padding: 12px; border-radius: 4px;" />
+                </label>
+
+                <label class="field field--wide" style="grid-column: 1 / -1; max-width: 100%;">
+                  <span>Excerpt</span>
+                  <textarea id="excerpt" name="excerpt" placeholder="Short summary used in cards and metadata." required style="width:100%; border: 1px solid var(--border); padding: 12px; border-radius: 4px; min-height: 88px;"></textarea>
+                </label>
+
+                <label class="field" style="max-width: 100%;">
+                  <span>Tags</span>
+                  <input id="tags" name="tags" type="text" placeholder="ai, security, tooling" style="width:100%; border: 1px solid var(--border); padding: 12px; border-radius: 4px;" />
+                </label>
+
+                <label class="field" style="max-width: 100%;">
+                  <span>Location</span>
+                  <input id="location" name="location" type="text" placeholder="Optional" style="width:100%; border: 1px solid var(--border); padding: 12px; border-radius: 4px;" />
+                </label>
+
+                <label class="field" style="max-width: 100%;">
+                  <span>Cover image</span>
+                  <input id="cover" name="cover" type="file" accept="image/*" style="width:100%; padding: 12px 0;" />
+                </label>
+
+                <label class="field" style="max-width: 100%;">
+                  <span>Cover alt</span>
+                  <input id="coverAlt" name="coverAlt" type="text" placeholder="Describe the cover image" style="width:100%; border: 1px solid var(--border); padding: 12px; border-radius: 4px;" />
+                </label>
+
+                <label class="field field--wide" style="grid-column: 1 / -1; max-width: 100%;">
+                  <span>Post images</span>
+                  <input id="post-images" name="post-images" type="file" accept="image/*" multiple style="width:100%; padding: 12px 0;" />
+                </label>
+
+                <label class="field field--wide" style="grid-column: 1 / -1; max-width: 100%;">
+                  <span>Body</span>
+                  <textarea id="body" name="body" required style="width:100%; border: 1px solid var(--border); padding: 12px; border-radius: 4px; min-height: 320px; font-family: monospace;">{starterBody}</textarea>
+                </label>
+              </div>
+
+              <div class="toggle-row" style="display: flex; gap: 24px; margin-top: 16px;">
+                <label class="toggle" style="display: flex; align-items: center; gap: 8px;">
+                  <input id="featured" name="featured" type="checkbox" />
+                  <span>Feature on homepage</span>
+                </label>
+                <label class="toggle" style="display: flex; align-items: center; gap: 8px;">
+                  <input id="draft" name="draft" type="checkbox" />
+                  <span>Save as draft</span>
+                </label>
+              </div>
+
+              <div style="display: flex; gap: 16px; margin-top: 32px;">
+                <button class="btn btn-primary" id="submit-button" type="submit">Publish to site</button>
+                <button class="btn btn-outline" id="reset-form" type="button">Reset form</button>
+              </div>
+            </form>
+          </article>
+
+          <div class="stack-grid" style="display: grid; gap: 32px;">
+            <article class="preview-card">
+              <span class="eyebrow">Preview</span>
+              <div id="preview-card" style="margin-top: 16px;">
+                <div class="preview-cover preview-cover--empty" id="preview-cover" style="aspect-ratio: 16/9; background: var(--surface-2); display: flex; align-items: center; justify-content: center; color: var(--text-3); font-size: 0.8rem; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 24px;">No cover selected</div>
+                <div class="preview-copy">
+                  <div class="post-card__meta" style="margin-bottom: 16px;">
+                    <span id="preview-section">AI</span>
+                    <span id="preview-date">{new Date().toISOString().slice(0, 10)}</span>
+                  </div>
+                  <div class="tag-cloud" id="preview-tags" style="margin-bottom: 16px;"></div>
+                  <h2 id="preview-title" class="title-2" style="font-size: 1.5rem; margin-bottom: 12px;">Preview title</h2>
+                  <p id="preview-excerpt" style="color: var(--text-2); line-height: 1.6; margin-bottom: 24px;">The excerpt appears here as you type.</p>
+                  <div class="preview-body article-prose" id="preview-body" style="padding: 0; font-size: 1rem; margin-bottom: 24px;"></div>
+                  <div class="preview-gallery" id="preview-gallery" style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px;"></div>
+                </div>
+              </div>
+            </article>
+
+            <article class="preview-card">
+              <span class="eyebrow">Publish plan</span>
+              <pre class="code-like" id="file-plan" style="margin-top: 16px; padding: 16px; background: #0b1521; color: #e0eff8; border-radius: 4px; font-size: 0.85rem; overflow-x: auto;">owner/repo@main
+src/content/posts/your-slug.md
+public/images/posts/your-slug/...</pre>
+            </article>
+
+            <article class="preview-card studio-status" id="studio-status" aria-live="polite">
+              <h2 class="title-2" style="font-size: 1.25rem;">Status</h2>
+              <p style="margin-top: 12px; color: var(--text-2);">Ready to publish.</p>
+            </article>
+          </div>
+        </div>
+      </section>
+
+      <script type="module">
+        import { initStudioPublisher } from '../lib/studio-publish';
+
+        const studioForm = document.querySelector('#studio-form');
+        initStudioPublisher({ starterBody: studioForm?.getAttribute('data-starter-body') ?? '' });
+      </script>
+    </>
+  ) : (
+    <section class="shell page-intro">
+      <div class="grid">
+        <div class="page-intro__copy">
+          <span class="eyebrow">Unavailable</span>
+          <h1 class="title-1">Not Found</h1>
+          <p class="summary">This route is not included in the production site.</p>
+        </div>
+      </div>
+    </section>
+  )}
+</BaseLayout>
