@@ -171,6 +171,18 @@ const buildMarkdown = (input: {
   return lines.join('\n');
 };
 
+const parseGithubErrorMessage = async (response: Response) => {
+  const rawMessage = await response.text();
+
+  try {
+    const parsed = JSON.parse(rawMessage) as { message?: string; errors?: Array<{ message?: string }> };
+    const extra = parsed.errors?.map((item) => item.message).filter(Boolean).join('; ');
+    return [parsed.message, extra].filter(Boolean).join(' | ') || rawMessage;
+  } catch {
+    return rawMessage;
+  }
+};
+
 const githubRequest = async (config: RepoConfig, path: string, init: RequestInit = {}) => {
   const response = await fetch(`https://api.github.com/repos/${encodeURIComponent(config.owner)}/${encodeURIComponent(config.repo)}${path}`, {
     ...init,
@@ -183,11 +195,39 @@ const githubRequest = async (config: RepoConfig, path: string, init: RequestInit
   });
 
   if (!response.ok) {
-    const message = await response.text();
+    const message = await parseGithubErrorMessage(response);
     throw new Error(`GitHub API error ${response.status}: ${message}`);
   }
 
   return response.json();
+};
+
+const validateRepoAccess = async (config: RepoConfig) => {
+  await githubRequest(config, '');
+  await githubRequest(config, `/branches/${encodePathSegments(config.branch)}`);
+};
+
+const formatPublishError = (error: unknown, config: RepoConfig | null) => {
+  const message = error instanceof Error ? error.message : 'Publishing failed.';
+
+  if (message.includes('GitHub API error 401')) {
+    return 'GitHub Token 无效，已过期，或没有访问仓库的权限。请重新生成 Token，并确认它能访问这个仓库。';
+  }
+
+  if (message.includes('GitHub API error 403')) {
+    return 'GitHub 拒绝了这次请求。通常是 Token 权限不足。请确认 Token 对 10Allen01.github.io 具有 Contents: Read and write 权限。';
+  }
+
+  if (message.includes('GitHub API error 404')) {
+    const repoLabel = config ? `${config.owner}/${config.repo}` : '当前仓库';
+    return `${repoLabel} 或分支 ${config?.branch ?? 'main'} 不存在，或者 Token 没有访问这个仓库的权限。`;
+  }
+
+  if (message.includes('Failed to fetch')) {
+    return '无法连接到 GitHub API。请检查网络连接，然后重试。';
+  }
+
+  return message;
 };
 
 const createCommit = async (config: RepoConfig, files: RepoFile[], message: string) => {
@@ -474,9 +514,12 @@ export const initStudioPublisher = ({ starterBody }: StudioInitOptions) => {
 
     submitButton.disabled = true;
     submitButton.textContent = 'Publishing...';
-    setStatus('Publishing', 'Sending content to the live site source...');
+    setStatus('Checking configuration', 'Verifying repository access before publishing...');
 
     try {
+      await validateRepoAccess(config);
+      setStatus('Publishing', 'Sending content to the live site source...');
+
       const imageEntries: PublishImageEntry[] = [];
       const files: RepoFile[] = [];
 
@@ -540,8 +583,7 @@ export const initStudioPublisher = ({ starterBody }: StudioInitOptions) => {
          </ul>`
       );
     } catch (error) {
-      const message = error instanceof Error ? error.message : 'Publishing failed.';
-      setStatus('Publish failed', message, 'status-error');
+      setStatus('Publish failed', formatPublishError(error, config), 'status-error');
     } finally {
       submitButton.disabled = false;
       submitButton.textContent = 'Publish to site';
