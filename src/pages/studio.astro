@@ -184,7 +184,7 @@ public/images/posts/your-slug/...</pre>
       </section>
 
       <script type="module">
-        import { initStudioPublisher } from '../lib/studio-publish';
+        import { initStudioPublisher } from '/src/lib/studio-publish.ts';
 
         const studioForm = document.querySelector('#studio-form');
         initStudioPublisher({ starterBody: studioForm?.getAttribute('data-starter-body') ?? '' });
