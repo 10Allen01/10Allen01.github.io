@@ -425,7 +425,7 @@ export const initStudioPublisher = ({ starterBody }: StudioInitOptions) => {
     if (state.coverFile) {
       const coverUrl = URL.createObjectURL(state.coverFile);
       state.previewUrls.push(coverUrl);
-      previewCover.innerHTML = `<img src="${coverUrl}" alt="Cover preview" style="width: 100%; height: 100%; object-fit: cover;" />`;
+      previewCover.innerHTML = `<img src="${coverUrl}" alt="Cover preview" style="width: 100%; height: 100%; object-fit: contain; display: block;" />`;
       previewCover.classList.remove('preview-cover--empty');
     } else {
       previewCover.textContent = 'No cover selected';

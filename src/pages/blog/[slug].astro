@@ -37,7 +37,9 @@ const hasInlinePostImages = /!\[[^\]]*\]\((?:\/images\/|https?:\/\/)/.test(post.
     </header>
 
     {cover && (
-      <img class="article-media" src={cover} alt={post.data.coverAlt || post.data.title} />
+      <div class="article-media-shell">
+        <img class="article-media" src={cover} alt={post.data.coverAlt || post.data.title} />
+      </div>
     )}
 
     <div class="shell">
