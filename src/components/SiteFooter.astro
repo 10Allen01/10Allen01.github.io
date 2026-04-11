@@ -1,5 +1,5 @@
 ---
-import { siteConfig, withBase } from '../config/site';
+import { siteConfig } from '../config/site';
 
 const year = new Date().getFullYear();
 ---
@@ -12,11 +12,10 @@ const year = new Date().getFullYear();
 
     <div class="site-footer__links">
       {siteConfig.socialLinks.map((link) => (
-        <a href={link.href} target={link.href.startsWith('mailto:') ? undefined : '_blank'} rel={link.href.startsWith('mailto:') ? undefined : 'noreferrer'}>
+        <a href={link.href}>
           {link.label}
         </a>
       ))}
-      <a href={withBase('/rss.xml')}>RSS</a>
     </div>
   </div>
 </footer>

@@ -3,7 +3,6 @@ export const siteConfig = {
   tagline: 'Technical Notes',
   description: 'A personal archive focusing on AI, Cyber Security, Programming, and practical tools.',
   author: 'Allen',
-  email: 'hello@example.com',
   location: 'Global',
   hero: {
     eyebrow: 'Welcome',
@@ -13,15 +12,11 @@ export const siteConfig = {
   socialLinks: [
     {
       label: 'GitHub',
-      href: 'https://github.com/your-name'
+      href: 'https://github.com/10Allen01'
     },
     {
-      label: 'X',
-      href: 'https://x.com/your-name'
-    },
-    {
-      label: 'Email',
-      href: 'mailto:hello@example.com'
+      label: 'Instagram',
+      href: 'https://www.instagram.com/sore.nvoss/'
     }
   ]
 } as const;
