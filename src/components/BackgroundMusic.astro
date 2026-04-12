@@ -122,6 +122,7 @@ const showTrackNav = bm.tracks.length > 1;
 
       if (Math.abs(delta) < 0.01) {
         try {
+          if (safeTarget > 0) audio.muted = false;
           audio.volume = safeTarget;
         } catch {
           /* ignore */
@@ -137,6 +138,7 @@ const showTrackNav = bm.tracks.length > 1;
         const next = from + delta * progress;
 
         try {
+          if (safeTarget > 0) audio.muted = false;
           audio.volume = Math.max(0, Math.min(1, next));
         } catch {
           clearFade();
@@ -147,6 +149,7 @@ const showTrackNav = bm.tracks.length > 1;
         if (progress >= 1) {
           clearFade();
           try {
+            if (safeTarget > 0) audio.muted = false;
             audio.volume = safeTarget;
           } catch {
             /* ignore */
@@ -217,10 +220,11 @@ const showTrackNav = bm.tracks.length > 1;
       }
     }
 
-    function playWithFade() {
+    function playWithFade(useMutedAutoplay = false) {
       clearFade();
 
       try {
+        audio.muted = useMutedAutoplay;
         audio.volume = 0;
       } catch {
         /* ignore */
@@ -233,6 +237,13 @@ const showTrackNav = bm.tracks.length > 1;
       const handleStarted = () => {
         autoplayBlocked = false;
         resumeAfterReturn = false;
+        if (!useMutedAutoplay) {
+          try {
+            audio.muted = false;
+          } catch {
+            /* ignore */
+          }
+        }
         fadeVolumeTo(getTargetVolume(), FADE_IN_MS);
       };
 
@@ -250,7 +261,7 @@ const showTrackNav = bm.tracks.length > 1;
     function startAutoplayFlow() {
       if (userPaused) return;
       autoplayBlocked = false;
-      playWithFade();
+      playWithFade(true);
     }
 
     function pauseForReturn() {
@@ -267,7 +278,7 @@ const showTrackNav = bm.tracks.length > 1;
 
     function resumeFromReturn() {
       if (!resumeAfterReturn || userPaused || !audio.paused) return;
-      playWithFade();
+      playWithFade(true);
       writeStore({ intent: 'play' });
     }
 
@@ -313,7 +324,7 @@ const showTrackNav = bm.tracks.length > 1;
 
         if (wasActive) {
           window.setTimeout(function () {
-            playWithFade();
+            playWithFade(false);
           }, 220);
         } else {
           syncPlayUi(false);
@@ -389,7 +400,7 @@ const showTrackNav = bm.tracks.length > 1;
         writeStore();
       } else {
         userPaused = false;
-        playWithFade();
+        playWithFade(false);
         writeStore();
       }
     });
@@ -403,7 +414,7 @@ const showTrackNav = bm.tracks.length > 1;
       'pointerdown',
       function onceTryPlay() {
         if (autoplayBlocked && !userPaused && audio.paused) {
-          playWithFade();
+          playWithFade(false);
         }
       },
       { passive: true }
