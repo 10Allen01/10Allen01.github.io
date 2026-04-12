@@ -57,6 +57,9 @@ const showTrackNav = bm.tracks.length > 1;
     const root = document.getElementById('music-root');
     const audio = document.getElementById('music-audio');
     if (!root || !root.dataset.tracksEnc || !(audio instanceof HTMLAudioElement)) return;
+    if (root.dataset.initialized === '1') return;
+
+    root.dataset.initialized = '1';
 
     let tracks;
     try {
@@ -427,10 +430,6 @@ const showTrackNav = bm.tracks.length > 1;
       }
 
       resumeFromReturn();
-    });
-
-    window.addEventListener('blur', function () {
-      pauseForReturn();
     });
 
     window.addEventListener('focus', function () {
