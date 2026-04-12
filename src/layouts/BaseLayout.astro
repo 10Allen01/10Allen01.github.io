@@ -48,14 +48,95 @@ const imageUrl = image
     <meta name="twitter:title" content={pageTitle} />
     <meta name="twitter:description" content={description} />
     {imageUrl && <meta name="twitter:image" content={imageUrl} />}
+    <script is:inline>
+      (function () {
+        const key = 'allen.entryLoader.seen';
+        let shouldAnimate = true;
+
+        try {
+          shouldAnimate = sessionStorage.getItem(key) !== '1';
+        } catch {
+          shouldAnimate = true;
+        }
+
+        window.__allenEntryLoaderKey = key;
+        window.__allenEntryLoaderShouldAnimate = shouldAnimate;
+        document.documentElement.classList.add(shouldAnimate ? 'site-entry-pending' : 'site-entry-skip');
+      })();
+    </script>
     <slot name="head" />
   </head>
   <body class:list={['site-shell', pageClass, musicBarOn && 'site-shell--music-bar']}>
+    <div id="entry-loader" class="entry-loader" aria-hidden="true">
+      <div class="entry-loader__wash"></div>
+      <div class="entry-loader__grid"></div>
+      <div class="entry-loader__core">
+        <span class="entry-loader__ring entry-loader__ring--outer"></span>
+        <span class="entry-loader__ring entry-loader__ring--inner"></span>
+        <span class="entry-loader__spark entry-loader__spark--a"></span>
+        <span class="entry-loader__spark entry-loader__spark--b"></span>
+        <span class="entry-loader__brand">{siteConfig.title}</span>
+        <span class="entry-loader__beam"></span>
+      </div>
+    </div>
     <SiteHeader />
     <main class="page-main">
       <slot />
     </main>
     <SiteFooter />
     <BackgroundMusic />
+    <script is:inline>
+      (function () {
+        const root = document.getElementById('entry-loader');
+        if (!root) return;
+
+        const doc = document.documentElement;
+        const shouldAnimate = window.__allenEntryLoaderShouldAnimate === true;
+        const key = window.__allenEntryLoaderKey || 'allen.entryLoader.seen';
+
+        if (!shouldAnimate) {
+          root.setAttribute('hidden', '');
+          return;
+        }
+
+        let finished = false;
+
+        const finish = () => {
+          if (finished) return;
+          finished = true;
+          root.classList.add('is-exit');
+          doc.classList.remove('site-entry-pending');
+          doc.classList.add('site-entry-done');
+
+          try {
+            sessionStorage.setItem(key, '1');
+          } catch {
+            /* empty */
+          }
+
+          window.setTimeout(() => {
+            root.setAttribute('hidden', '');
+          }, 900);
+        };
+
+        requestAnimationFrame(() => {
+          root.classList.add('is-active');
+        });
+
+        if (document.readyState === 'complete') {
+          window.setTimeout(finish, 1500);
+        } else {
+          window.addEventListener(
+            'load',
+            () => {
+              window.setTimeout(finish, 1500);
+            },
+            { once: true }
+          );
+        }
+
+        window.setTimeout(finish, 3200);
+      })();
+    </script>
   </body>
 </html>
