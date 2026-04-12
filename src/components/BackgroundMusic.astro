@@ -48,17 +48,15 @@ const showTrackNav = bm.tracks.length > 1;
     </div>
   </div>
 
-  <div class="music-bar__yt-shell" aria-hidden="true">
-    <div id="yt-audio-player"></div>
-  </div>
+  <audio id="music-audio" preload="auto" style="display: none;"></audio>
 </div>
 
 <script is:inline>
   (function () {
     const LS = 'allen.bgMusic';
-
     const root = document.getElementById('music-root');
-    if (!root || !root.dataset.tracksEnc) return;
+    const audio = document.getElementById('music-audio');
+    if (!root || !root.dataset.tracksEnc || !(audio instanceof HTMLAudioElement)) return;
 
     let tracks;
     try {
@@ -74,25 +72,17 @@ const showTrackNav = bm.tracks.length > 1;
     const toggleBtn = document.getElementById('music-toggle');
     const iconPlay = document.getElementById('music-icon-play');
     const iconPause = document.getElementById('music-icon-pause');
-    const statusEl = document.getElementById('music-status');
     const volInput = document.getElementById('music-volume');
 
     const FADE_IN_MS = 1400;
     const FADE_OUT_MS = 450;
     const FADE_TICK_MS = 50;
 
-    let player = null;
     let index = 0;
-    let ready = false;
     let userPaused = false;
     let saveTimer = null;
     let fadeTimer = null;
-
-    function setStatus(message, isError) {
-      if (!statusEl) return;
-      statusEl.textContent = message;
-      statusEl.style.color = isError ? '#b42318' : 'var(--text-3)';
-    }
+    let autoplayBlocked = false;
 
     function setControlsEnabled(enabled) {
       prevBtn && (prevBtn.disabled = !enabled);
@@ -102,19 +92,11 @@ const showTrackNav = bm.tracks.length > 1;
     }
 
     function getTargetVolume() {
-      return Math.max(0, Math.min(100, Number(volInput?.value) || 80));
+      return Math.max(0, Math.min(100, Number(volInput?.value) || 80)) / 100;
     }
 
     function getCurrentVolume() {
-      try {
-        if (player && ready && typeof player.getVolume === 'function') {
-          return Math.max(0, Math.min(100, Number(player.getVolume()) || 0));
-        }
-      } catch {
-        /* ignore */
-      }
-
-      return getTargetVolume();
+      return Math.max(0, Math.min(1, Number(audio.volume) || 0));
     }
 
     function clearFade() {
@@ -125,22 +107,20 @@ const showTrackNav = bm.tracks.length > 1;
     }
 
     function fadeVolumeTo(target, duration, onDone) {
-      if (!player || !ready || typeof player.setVolume !== 'function') {
+      if (!audio) {
         onDone?.();
         return;
       }
 
       clearFade();
 
-      const safeTarget = Math.max(0, Math.min(100, target));
+      const safeTarget = Math.max(0, Math.min(1, target));
       const from = getCurrentVolume();
       const delta = safeTarget - from;
 
-      if (Math.abs(delta) < 1) {
+      if (Math.abs(delta) < 0.01) {
         try {
-          player.setVolume(safeTarget);
-          if (safeTarget > 0 && typeof player.unMute === 'function') player.unMute();
-          if (safeTarget === 0 && typeof player.mute === 'function') player.mute();
+          audio.volume = safeTarget;
         } catch {
           /* ignore */
         }
@@ -152,11 +132,10 @@ const showTrackNav = bm.tracks.length > 1;
 
       fadeTimer = window.setInterval(function () {
         const progress = Math.min(1, (Date.now() - startedAt) / duration);
-        const next = Math.round(from + delta * progress);
+        const next = from + delta * progress;
 
         try {
-          if (safeTarget > 0 && typeof player.unMute === 'function') player.unMute();
-          player.setVolume(Math.max(0, Math.min(100, next)));
+          audio.volume = Math.max(0, Math.min(1, next));
         } catch {
           clearFade();
           onDone?.();
@@ -166,8 +145,7 @@ const showTrackNav = bm.tracks.length > 1;
         if (progress >= 1) {
           clearFade();
           try {
-            player.setVolume(safeTarget);
-            if (safeTarget === 0 && typeof player.mute === 'function') player.mute();
+            audio.volume = safeTarget;
           } catch {
             /* ignore */
           }
@@ -186,51 +164,11 @@ const showTrackNav = bm.tracks.length > 1;
       }
     }
 
-    function playFromUserGesture() {
-      if (!player || !ready) return;
-
-      const targetVolume = getTargetVolume();
-
-      try {
-        clearFade();
-        if (player.setVolume) player.setVolume(0);
-        if (player.unMute) player.unMute();
-        if (player.playVideo) player.playVideo();
-      } catch {
-        setStatus('Playback failed to start.', true);
-        return;
-      }
-
-      syncPlayUi(true);
-      setStatus('Starting…', false);
-
-      window.setTimeout(function () {
-        tryUnmute();
-        setStatus('Fading in…', false);
-
-        fadeVolumeTo(targetVolume, FADE_IN_MS, function () {
-          const muted = player && typeof player.isMuted === 'function' ? player.isMuted() : false;
-          if (muted) {
-            syncPlayUi(false);
-            setStatus('Autoplay started muted. Tap play to enable sound.', false);
-            return;
-          }
-
-          setStatus('Playing.', false);
-        });
-      }, 300);
-    }
-
     function writeStore(overrides) {
       try {
-        const cur = readStore() || {};
-        const st = player && ready && player.getPlayerState ? player.getPlayerState() : -1;
-        const YT = window.YT;
-        const playing = YT && st === YT.PlayerState.PLAYING;
-        const t = player && ready && player.getCurrentTime ? player.getCurrentTime() || 0 : 0;
         const payload = {
           index,
-          t: Math.max(0, t),
+          t: Math.max(0, audio.currentTime || 0),
           intent: userPaused ? 'pause' : 'play',
           vol: volInput ? Number(volInput.value) || 80 : 80,
           at: Date.now(),
@@ -254,306 +192,198 @@ const showTrackNav = bm.tracks.length > 1;
       iconPause?.classList.toggle('hidden', !playing);
     }
 
-    function tryUnmute() {
-      if (!player || !ready) return;
-      try {
-        if (player.unMute) player.unMute();
-        if (player.setVolume && volInput) player.setVolume(Number(volInput.value) || 80);
-      } catch {
-        /* autoplay policy */
+    function loadTrack(nextIndex, startTime = 0) {
+      if (!tracks[nextIndex]) return;
+
+      index = nextIndex;
+      audio.src = tracks[index].src;
+      audio.loop = tracks.length <= 1;
+      audio.load();
+      setTitle();
+
+      if (startTime > 0) {
+        const applyStartTime = () => {
+          try {
+            audio.currentTime = startTime;
+          } catch {
+            /* ignore */
+          }
+          audio.removeEventListener('loadedmetadata', applyStartTime);
+        };
+
+        audio.addEventListener('loadedmetadata', applyStartTime);
       }
+    }
+
+    function playWithFade() {
+      clearFade();
+
+      try {
+        audio.volume = 0;
+      } catch {
+        /* ignore */
+      }
+
+      const playPromise = audio.play();
+
+      syncPlayUi(true);
+
+      const handleStarted = () => {
+        autoplayBlocked = false;
+        fadeVolumeTo(getTargetVolume(), FADE_IN_MS);
+      };
+
+      if (playPromise && typeof playPromise.then === 'function') {
+        playPromise.then(handleStarted).catch(() => {
+          autoplayBlocked = true;
+          syncPlayUi(false);
+        });
+        return;
+      }
+
+      handleStarted();
     }
 
     function startAutoplayFlow() {
-      if (!player || !ready) return;
-
-      const targetVolume = getTargetVolume();
-
-      try {
-        clearFade();
-        if (player.setVolume) player.setVolume(0);
-        if (player.mute) player.mute();
-        if (player.playVideo) player.playVideo();
-      } catch {
-        /* ignore */
-      }
-
-      syncPlayUi(true);
-      setStatus('Autoplay requested…', false);
-
-      window.setTimeout(function () {
-        const YT = window.YT;
-        const st = player && player.getPlayerState ? player.getPlayerState() : -1;
-        const started = YT && (st === YT.PlayerState.PLAYING || st === YT.PlayerState.BUFFERING);
-
-        if (!started) {
-          syncPlayUi(false);
-          setStatus('Autoplay was blocked. Tap play to start the music.', false);
-          return;
-        }
-
-        tryUnmute();
-        setStatus('Fading in…', false);
-        fadeVolumeTo(targetVolume, FADE_IN_MS, function () {
-          const muted = player && typeof player.isMuted === 'function' ? player.isMuted() : false;
-          if (muted) {
-            syncPlayUi(false);
-            setStatus('Autoplay started muted. Tap play to enable sound.', false);
-            return;
-          }
-
-          setStatus('Playing.', false);
-        });
-      }, 900);
-
-      document.addEventListener(
-        'pointerdown',
-        function onceUnmute() {
-          if (player && typeof player.isMuted === 'function' && player.isMuted()) {
-            playFromUserGesture();
-          } else {
-            tryUnmute();
-          }
-          document.removeEventListener('pointerdown', onceUnmute);
-        },
-        { once: true, passive: true }
-      );
-    }
-
-    function pauseFromHost() {
-      try {
-        if (player && typeof player.pauseVideo === 'function') player.pauseVideo();
-      } catch {
-        /* ignore */
-      }
+      if (userPaused) return;
+      autoplayBlocked = false;
+      playWithFade();
     }
 
     function pauseImmediatelyOnLeave() {
-      if (!player) return;
+      if (!audio) return;
 
       clearFade();
       syncPlayUi(false);
 
       try {
-        if (typeof player.setVolume === 'function') player.setVolume(0);
-        if (typeof player.mute === 'function') player.mute();
-        if (typeof player.pauseVideo === 'function') player.pauseVideo();
+        audio.volume = 0;
+        audio.pause();
       } catch {
         /* ignore */
       }
     }
 
-    function pauseWithFade(markUserPaused, finalStatus = 'Paused.') {
-      if (!player || !ready) return;
+    function pauseWithFade(markUserPaused) {
+      if (!audio) return;
 
       if (markUserPaused) {
         userPaused = true;
       }
 
-      setStatus('Fading out…', false);
       syncPlayUi(false);
 
       fadeVolumeTo(0, FADE_OUT_MS, function () {
         try {
-          if (player.pauseVideo) player.pauseVideo();
+          audio.pause();
         } catch {
           /* ignore */
         }
-
-        setStatus(finalStatus, false);
       });
     }
 
     function go(delta) {
-      if (!player || !ready) return;
-      const YT = window.YT;
-      const st = YT && player.getPlayerState ? player.getPlayerState() : -1;
-      const wasActive = YT && (st === YT.PlayerState.PLAYING || st === YT.PlayerState.BUFFERING);
+      const wasActive = !audio.paused;
 
       const startNextTrack = () => {
-        index = (index + delta + tracks.length) % tracks.length;
-        player.loadVideoById({ videoId: tracks[index].videoId });
-        setTitle();
+        loadTrack((index + delta + tracks.length) % tracks.length);
         userPaused = false;
 
         if (wasActive) {
           window.setTimeout(function () {
-            playFromUserGesture();
+            playWithFade();
           }, 220);
         } else {
           syncPlayUi(false);
-          setStatus('Ready to play.', false);
         }
 
         writeStore();
       };
 
       if (wasActive) {
-        setStatus('Switching track…', false);
-        fadeVolumeTo(0, FADE_OUT_MS, startNextTrack);
+        pauseWithFade(false);
+        window.setTimeout(startNextTrack, FADE_OUT_MS + 30);
         return;
       }
 
       startNextTrack();
     }
 
-    function onStateChange(event) {
-      const YT = window.YT;
-      if (!YT || !YT.PlayerState) return;
-      if (event.data === YT.PlayerState.ENDED) {
+    audio.addEventListener('play', function () {
+      syncPlayUi(true);
+      autoplayBlocked = false;
+    });
+
+    audio.addEventListener('pause', function () {
+      syncPlayUi(false);
+    });
+
+    audio.addEventListener('ended', function () {
+      if (tracks.length <= 1) {
         userPaused = false;
-        if (tracks.length <= 1) {
-          try {
-            player.seekTo(0, true);
-          } catch {
-            /* ignore */
-          }
-          window.setTimeout(function () {
-            startAutoplayFlow();
-          }, 120);
-          writeStore();
-          return;
-        }
-        index = (index + 1) % tracks.length;
-        player.loadVideoById({ videoId: tracks[index].videoId });
-        setTitle();
         window.setTimeout(function () {
           startAutoplayFlow();
         }, 120);
         writeStore();
         return;
       }
-      if (event.data === YT.PlayerState.PLAYING) {
-        syncPlayUi(true);
-        tryUnmute();
-        setStatus('Playing.', false);
-        return;
-      }
-      if (event.data === YT.PlayerState.PAUSED) {
-        syncPlayUi(false);
-        setStatus(userPaused ? 'Paused.' : 'Ready to play.', false);
-        return;
-      }
-      if (event.data === YT.PlayerState.BUFFERING) {
-        setStatus('Buffering…', false);
-        return;
-      }
-      if (event.data === YT.PlayerState.CUED || event.data === YT.PlayerState.UNSTARTED) {
-        syncPlayUi(false);
-        setStatus('Ready to play.', false);
-      }
-    }
+      go(1);
+    });
 
-    function onPlayerError(event) {
-      const code = event && typeof event.data === 'number' ? event.data : 0;
-      const message = code === 150 || code === 101
-        ? 'This YouTube video does not allow embedded playback.'
-        : code === 2
-          ? 'The current video ID is invalid.'
-          : code === 5
-            ? 'The browser could not play this YouTube video.'
-            : 'The music player failed to load this track.';
+    audio.addEventListener('error', function () {
+      autoplayBlocked = true;
       syncPlayUi(false);
-      setStatus(message, true);
-    }
+    });
 
-    function onPlayerReady() {
-      ready = true;
-      setControlsEnabled(true);
+    function initPlayer() {
       const saved = readStore();
       if (volInput && saved && typeof saved.vol === 'number') {
         volInput.value = String(Math.max(0, Math.min(100, saved.vol)));
       }
-      if (player.setVolume && volInput) player.setVolume(Number(volInput.value) || 80);
-
-      setTitle();
+      audio.volume = getTargetVolume();
 
       const startT = saved && typeof saved.t === 'number' ? Math.max(0, saved.t) : 0;
+      index = saved && typeof saved.index === 'number'
+        ? Math.max(0, Math.min(saved.index, tracks.length - 1))
+        : 0;
 
-      if (startT > 0.5) {
-        player.loadVideoById({ videoId: tracks[index].videoId, startSeconds: startT });
-      }
+      loadTrack(index, startT > 0.5 ? startT : 0);
 
       userPaused = false;
+      setControlsEnabled(true);
       startAutoplayFlow();
       writeStore();
-    }
-
-    function createPlayer() {
-      const YT = window.YT;
-      if (!YT || !YT.Player) return;
-
-      const saved = readStore();
-      index = 0;
-      if (saved && typeof saved.index === 'number' && tracks.length > 0) {
-        index = Math.max(0, Math.min(saved.index, tracks.length - 1));
-      }
-
-      player = new YT.Player('yt-audio-player', {
-        height: '1',
-        width: '1',
-        host: 'https://www.youtube.com',
-        videoId: tracks[index].videoId,
-        playerVars: {
-          enablejsapi: 1,
-          autoplay: 1,
-          mute: 1,
-          playsinline: 1,
-          controls: 0,
-          modestbranding: 1,
-          rel: 0,
-          fs: 0,
-          iv_load_policy: 3,
-          origin: window.location.origin
-        },
-        events: {
-          onReady: onPlayerReady,
-          onStateChange: onStateChange,
-          onError: onPlayerError
-        }
-      });
-    }
-
-    function initWhenApiReady() {
-      if (window.YT && window.YT.Player) {
-        createPlayer();
-        return;
-      }
-      const previous = window.onYouTubeIframeAPIReady;
-      window.onYouTubeIframeAPIReady = function () {
-        if (typeof previous === 'function') previous();
-        createPlayer();
-      };
-      if (document.querySelector('script[src="https://www.youtube.com/iframe_api"]')) return;
-      const tag = document.createElement('script');
-      tag.src = 'https://www.youtube.com/iframe_api';
-      document.head.appendChild(tag);
     }
 
     prevBtn?.addEventListener('click', () => go(-1));
     nextBtn?.addEventListener('click', () => go(1));
 
     toggleBtn?.addEventListener('click', () => {
-      if (!player || !ready) return;
-      const YT = window.YT;
-      if (!YT || !YT.PlayerState) return;
-      const st = player.getPlayerState();
-      const muted = typeof player.isMuted === 'function' ? player.isMuted() : false;
-      if (st === YT.PlayerState.PLAYING && !muted) {
-        pauseWithFade(true, 'Paused.');
+      if (!audio) return;
+      if (!audio.paused) {
+        pauseWithFade(true);
         writeStore();
       } else {
         userPaused = false;
-        playFromUserGesture();
+        playWithFade();
         writeStore();
       }
     });
 
     volInput?.addEventListener('input', () => {
-      if (!player || !ready || !player.setVolume) return;
-      player.setVolume(Number(volInput.value) || 0);
+      audio.volume = getTargetVolume();
       writeStore();
     });
+
+    document.addEventListener(
+      'pointerdown',
+      function onceTryPlay() {
+        if (autoplayBlocked && !userPaused && audio.paused) {
+          playWithFade();
+        }
+      },
+      { passive: true }
+    );
 
     document.addEventListener('visibilitychange', function () {
       if (document.hidden) {
@@ -578,12 +408,11 @@ const showTrackNav = bm.tracks.length > 1;
     });
 
     saveTimer = window.setInterval(function () {
-      if (!player || !ready) return;
-      const YT = window.YT;
-      if (YT && player.getPlayerState() === YT.PlayerState.PLAYING) writeStore();
+      if (!audio || audio.paused) return;
+      writeStore();
     }, 3000);
 
     setControlsEnabled(false);
-    initWhenApiReady();
+    initPlayer();
   })();
 </script>

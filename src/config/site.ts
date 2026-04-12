@@ -1,5 +1,5 @@
 /** YouTube watch URL ?v=… → videoId. Titles show on the site player (edit freely). */
-export type BackgroundMusicTrack = { title: string; videoId: string };
+export type BackgroundMusicTrack = { title: string; src: string };
 
 /** Bottom bar player: hidden YouTube engine + on-site controls. Set enabled: false to remove. */
 export type BackgroundMusicConfig =
@@ -41,7 +41,7 @@ export const siteConfig = {
   backgroundMusic: {
     enabled: true,
     label: 'Now playing',
-    tracks: [{ title: 'Featured track', videoId: 'pVyINI8M-Fc' }]
+    tracks: [{ title: 'Featured track', src: '/audio/background.mp3' }]
   } satisfies BackgroundMusicConfig
 } as const;
 
