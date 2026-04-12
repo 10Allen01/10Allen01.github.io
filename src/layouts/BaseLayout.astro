@@ -1,5 +1,4 @@
 ---
-import { ViewTransitions } from 'astro:transitions';
 import '../styles/global.css';
 import BackgroundMusic from '../components/BackgroundMusic.astro';
 import SiteFooter from '../components/SiteFooter.astro';
@@ -49,7 +48,6 @@ const imageUrl = image
     <meta name="twitter:title" content={pageTitle} />
     <meta name="twitter:description" content={description} />
     {imageUrl && <meta name="twitter:image" content={imageUrl} />}
-    <ViewTransitions />
     <script is:inline>
       (function () {
         const navKey = 'allen.site.internalNav';
@@ -100,9 +98,7 @@ const imageUrl = image
       <slot />
     </main>
     <SiteFooter />
-    <div id="music-persist-shell" transition:persist>
-      <BackgroundMusic />
-    </div>
+    <BackgroundMusic />
     <script is:inline>
       (function () {
         const root = document.getElementById('entry-loader');
@@ -148,8 +144,6 @@ const imageUrl = image
 
         document.addEventListener('pointerdown', handleInternalNavigationIntent, { capture: true });
         document.addEventListener('click', handleInternalNavigationIntent, { capture: true });
-
-        document.addEventListener('astro:before-preparation', markInternalNavigation);
 
         if (!shouldAnimate) {
           doc.classList.remove('site-entry-pending');

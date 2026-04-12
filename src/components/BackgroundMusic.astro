@@ -453,6 +453,7 @@ const showTrackNav = bm.tracks.length > 1;
     });
 
     window.addEventListener('beforeunload', function () {
+      if (isInternalNavigationPending()) return;
       writeStore();
       pauseImmediatelyOnLeave();
     });
