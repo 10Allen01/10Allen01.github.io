@@ -89,6 +89,7 @@ const showTrackNav = bm.tracks.length > 1;
     let fadeTimer = null;
     let autoplayBlocked = false;
     let resumeAfterReturn = false;
+    let hiddenPauseTimer = null;
 
     function isInternalNavigationPending() {
       try {
@@ -96,6 +97,23 @@ const showTrackNav = bm.tracks.length > 1;
       } catch {
         return false;
       }
+    }
+
+    function clearHiddenPauseTimer() {
+      if (hiddenPauseTimer) {
+        window.clearTimeout(hiddenPauseTimer);
+        hiddenPauseTimer = null;
+      }
+    }
+
+    function schedulePauseForHiddenState() {
+      clearHiddenPauseTimer();
+
+      hiddenPauseTimer = window.setTimeout(function () {
+        hiddenPauseTimer = null;
+        if (!document.hidden || isInternalNavigationPending()) return;
+        pauseForReturn();
+      }, 420);
     }
 
     function setControlsEnabled(enabled) {
@@ -289,6 +307,7 @@ const showTrackNav = bm.tracks.length > 1;
     }
 
     function resumeFromReturn() {
+      clearHiddenPauseTimer();
       if (!resumeAfterReturn || userPaused || !audio.paused) return;
       playWithFade(true);
       writeStore({ intent: 'play' });
@@ -435,7 +454,7 @@ const showTrackNav = bm.tracks.length > 1;
     document.addEventListener('visibilitychange', function () {
       if (document.hidden) {
         if (isInternalNavigationPending()) return;
-        pauseForReturn();
+        schedulePauseForHiddenState();
         return;
       }
 
@@ -444,18 +463,6 @@ const showTrackNav = bm.tracks.length > 1;
 
     window.addEventListener('focus', function () {
       resumeFromReturn();
-    });
-
-    window.addEventListener('pagehide', function () {
-      if (isInternalNavigationPending()) return;
-      writeStore();
-      pauseImmediatelyOnLeave();
-    });
-
-    window.addEventListener('beforeunload', function () {
-      if (isInternalNavigationPending()) return;
-      writeStore();
-      pauseImmediatelyOnLeave();
     });
 
     window.addEventListener('pageshow', function () {

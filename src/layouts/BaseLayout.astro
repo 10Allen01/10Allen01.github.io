@@ -1,5 +1,5 @@
 ---
-import '../styles/global.css';
+import globalStyles from '../styles/global.css?raw';
 import BackgroundMusic from '../components/BackgroundMusic.astro';
 import SiteFooter from '../components/SiteFooter.astro';
 import SiteHeader from '../components/SiteHeader.astro';
@@ -48,6 +48,7 @@ const imageUrl = image
     <meta name="twitter:title" content={pageTitle} />
     <meta name="twitter:description" content={description} />
     {imageUrl && <meta name="twitter:image" content={imageUrl} />}
+    <style is:global set:html={globalStyles}></style>
     <script is:inline>
       (function () {
         const navKey = 'allen.site.internalNav';

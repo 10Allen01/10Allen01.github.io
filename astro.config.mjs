@@ -10,6 +10,9 @@ const site = process.env.PUBLIC_SITE_URL ?? (isGitHubActions ? `https://${owner}
 export default defineConfig({
   site,
   base,
+  build: {
+    inlineStylesheets: 'always'
+  },
   markdown: {
     shikiConfig: {
       theme: 'github-dark'
