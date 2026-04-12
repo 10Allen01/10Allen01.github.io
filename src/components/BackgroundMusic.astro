@@ -43,7 +43,7 @@ const showTrackNav = bm.tracks.length > 1;
     <div class="music-bar__volume">
       <label class="music-bar__vol-wrap">
         <span class="sr-only">Volume</span>
-        <input type="range" id="music-volume" min="0" max="100" value="80" />
+        <input type="range" id="music-volume" min="0" max="100" value="28" />
       </label>
     </div>
   </div>
@@ -74,6 +74,7 @@ const showTrackNav = bm.tracks.length > 1;
     const iconPause = document.getElementById('music-icon-pause');
     const volInput = document.getElementById('music-volume');
 
+    const DEFAULT_VOLUME = 28;
     const FADE_IN_MS = 1400;
     const FADE_OUT_MS = 450;
     const FADE_TICK_MS = 50;
@@ -83,6 +84,7 @@ const showTrackNav = bm.tracks.length > 1;
     let saveTimer = null;
     let fadeTimer = null;
     let autoplayBlocked = false;
+    let resumeAfterReturn = false;
 
     function setControlsEnabled(enabled) {
       prevBtn && (prevBtn.disabled = !enabled);
@@ -92,7 +94,7 @@ const showTrackNav = bm.tracks.length > 1;
     }
 
     function getTargetVolume() {
-      return Math.max(0, Math.min(100, Number(volInput?.value) || 80)) / 100;
+      return Math.max(0, Math.min(100, Number(volInput?.value) || DEFAULT_VOLUME)) / 100;
     }
 
     function getCurrentVolume() {
@@ -170,7 +172,7 @@ const showTrackNav = bm.tracks.length > 1;
           index,
           t: Math.max(0, audio.currentTime || 0),
           intent: userPaused ? 'pause' : 'play',
-          vol: volInput ? Number(volInput.value) || 80 : 80,
+          vol: volInput ? Number(volInput.value) || DEFAULT_VOLUME : DEFAULT_VOLUME,
           at: Date.now(),
           ...overrides
         };
@@ -230,6 +232,7 @@ const showTrackNav = bm.tracks.length > 1;
 
       const handleStarted = () => {
         autoplayBlocked = false;
+        resumeAfterReturn = false;
         fadeVolumeTo(getTargetVolume(), FADE_IN_MS);
       };
 
@@ -248,6 +251,24 @@ const showTrackNav = bm.tracks.length > 1;
       if (userPaused) return;
       autoplayBlocked = false;
       playWithFade();
+    }
+
+    function pauseForReturn() {
+      if (!audio) return;
+
+      const wasPlaying = !audio.paused;
+      if (wasPlaying && !userPaused) {
+        resumeAfterReturn = true;
+      }
+
+      writeStore();
+      pauseImmediatelyOnLeave();
+    }
+
+    function resumeFromReturn() {
+      if (!resumeAfterReturn || userPaused || !audio.paused) return;
+      playWithFade();
+      writeStore({ intent: 'play' });
     }
 
     function pauseImmediatelyOnLeave() {
@@ -269,6 +290,7 @@ const showTrackNav = bm.tracks.length > 1;
 
       if (markUserPaused) {
         userPaused = true;
+        resumeAfterReturn = false;
       }
 
       syncPlayUi(false);
@@ -312,6 +334,7 @@ const showTrackNav = bm.tracks.length > 1;
     audio.addEventListener('play', function () {
       syncPlayUi(true);
       autoplayBlocked = false;
+      resumeAfterReturn = false;
     });
 
     audio.addEventListener('pause', function () {
@@ -337,8 +360,8 @@ const showTrackNav = bm.tracks.length > 1;
 
     function initPlayer() {
       const saved = readStore();
-      if (volInput && saved && typeof saved.vol === 'number') {
-        volInput.value = String(Math.max(0, Math.min(100, saved.vol)));
+      if (volInput) {
+        volInput.value = String(DEFAULT_VOLUME);
       }
       audio.volume = getTargetVolume();
 
@@ -350,6 +373,7 @@ const showTrackNav = bm.tracks.length > 1;
       loadTrack(index, startT > 0.5 ? startT : 0);
 
       userPaused = false;
+      resumeAfterReturn = false;
       setControlsEnabled(true);
       startAutoplayFlow();
       writeStore();
@@ -387,14 +411,19 @@ const showTrackNav = bm.tracks.length > 1;
 
     document.addEventListener('visibilitychange', function () {
       if (document.hidden) {
-        writeStore();
-        pauseImmediatelyOnLeave();
+        pauseForReturn();
+        return;
       }
+
+      resumeFromReturn();
     });
 
     window.addEventListener('blur', function () {
-      writeStore();
-      pauseImmediatelyOnLeave();
+      pauseForReturn();
+    });
+
+    window.addEventListener('focus', function () {
+      resumeFromReturn();
     });
 
     window.addEventListener('pagehide', function () {
@@ -405,6 +434,10 @@ const showTrackNav = bm.tracks.length > 1;
     window.addEventListener('beforeunload', function () {
       writeStore();
       pauseImmediatelyOnLeave();
+    });
+
+    window.addEventListener('pageshow', function () {
+      resumeFromReturn();
     });
 
     saveTimer = window.setInterval(function () {

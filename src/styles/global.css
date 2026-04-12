@@ -78,10 +78,10 @@ html.site-entry-skip .music-bar {
   place-items: center;
   overflow: hidden;
   background:
-    radial-gradient(circle at 50% 50%, rgba(255, 255, 255, 0.9) 0%, rgba(249, 251, 255, 0.96) 42%, rgba(235, 244, 252, 0.98) 100%);
+    radial-gradient(circle at 50% 50%, rgba(255, 255, 255, 0.98) 0%, rgba(246, 250, 255, 0.98) 38%, rgba(228, 240, 250, 1) 100%);
   opacity: 0;
   visibility: hidden;
-  transition: opacity 700ms cubic-bezier(0.22, 1, 0.36, 1), visibility 700ms cubic-bezier(0.22, 1, 0.36, 1);
+  transition: opacity 900ms cubic-bezier(0.22, 1, 0.36, 1), visibility 900ms cubic-bezier(0.22, 1, 0.36, 1);
 }
 
 .entry-loader[hidden] {
@@ -99,7 +99,9 @@ html.site-entry-skip .music-bar {
 }
 
 .entry-loader__wash,
+.entry-loader__aurora,
 .entry-loader__grid,
+.entry-loader__grain,
 .entry-loader__core {
   position: absolute;
   inset: 0;
@@ -107,11 +109,20 @@ html.site-entry-skip .music-bar {
 
 .entry-loader__wash {
   background:
-    radial-gradient(circle at 20% 20%, rgba(46, 123, 184, 0.16), transparent 30%),
-    radial-gradient(circle at 80% 24%, rgba(73, 157, 214, 0.14), transparent 26%),
-    radial-gradient(circle at 50% 78%, rgba(255, 255, 255, 0.92), transparent 34%);
-  filter: blur(12px);
-  animation: entryWashFloat 7s ease-in-out infinite alternate;
+    radial-gradient(circle at 18% 20%, rgba(46, 123, 184, 0.16), transparent 30%),
+    radial-gradient(circle at 82% 24%, rgba(73, 157, 214, 0.16), transparent 28%),
+    radial-gradient(circle at 50% 78%, rgba(255, 255, 255, 0.96), transparent 34%);
+  filter: blur(14px);
+  animation: entryWashFloat 8s ease-in-out infinite alternate;
+}
+
+.entry-loader__aurora {
+  background:
+    conic-gradient(from 180deg at 50% 50%, rgba(255, 255, 255, 0) 0deg, rgba(129, 196, 255, 0.14) 72deg, rgba(46, 123, 184, 0.12) 158deg, rgba(255, 255, 255, 0) 232deg, rgba(171, 223, 255, 0.18) 304deg, rgba(255, 255, 255, 0) 360deg);
+  filter: blur(34px);
+  mix-blend-mode: screen;
+  opacity: 0.95;
+  animation: entryAuroraSpin 14s linear infinite;
 }
 
 .entry-loader__grid {
@@ -120,31 +131,52 @@ html.site-entry-skip .music-bar {
     linear-gradient(90deg, rgba(46, 123, 184, 0.08) 1px, transparent 1px);
   background-size: 36px 36px;
   mask-image: radial-gradient(circle at 50% 50%, black 22%, transparent 78%);
-  opacity: 0.4;
+  opacity: 0.5;
   transform: perspective(900px) rotateX(68deg) scale(1.8) translateY(12%);
   transform-origin: center center;
+  animation: entryGridDrift 10s ease-in-out infinite alternate;
+}
+
+.entry-loader__grain {
+  opacity: 0.16;
+  background-image:
+    radial-gradient(rgba(255, 255, 255, 0.9) 0.7px, transparent 0.7px),
+    radial-gradient(rgba(46, 123, 184, 0.18) 0.6px, transparent 0.6px);
+  background-size: 18px 18px, 24px 24px;
+  background-position: 0 0, 9px 9px;
+  mix-blend-mode: soft-light;
 }
 
 .entry-loader__core {
   inset: auto;
   position: relative;
-  width: min(42vw, 320px);
+  width: min(44vw, 360px);
   aspect-ratio: 1;
   display: grid;
   place-items: center;
+  filter: drop-shadow(0 28px 60px rgba(46, 123, 184, 0.16));
 }
 
+.entry-loader__halo,
 .entry-loader__ring,
 .entry-loader__spark,
-.entry-loader__beam {
+.entry-loader__beam,
+.entry-loader__pulse {
   position: absolute;
   border-radius: 999px;
 }
 
+.entry-loader__halo {
+  inset: 7%;
+  background: radial-gradient(circle, rgba(255, 255, 255, 0.96) 0%, rgba(181, 223, 255, 0.22) 38%, rgba(255, 255, 255, 0) 72%);
+  filter: blur(2px);
+  animation: entryHaloBreathe 3.2s ease-in-out infinite;
+}
+
 .entry-loader__ring--outer {
   inset: 0;
-  border: 1px solid rgba(46, 123, 184, 0.18);
-  box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.75) inset, 0 18px 60px rgba(46, 123, 184, 0.16);
+  border: 1px solid rgba(46, 123, 184, 0.16);
+  box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.84) inset, 0 18px 60px rgba(46, 123, 184, 0.16);
   animation: entryRingPulse 2.8s cubic-bezier(0.22, 1, 0.36, 1) infinite;
 }
 
@@ -176,23 +208,51 @@ html.site-entry-skip .music-bar {
   animation: entryOrbitB 3.4s linear infinite;
 }
 
+.entry-loader__spark--c {
+  right: 16%;
+  bottom: 18%;
+  width: 7px;
+  height: 7px;
+  transform-origin: -92px -82px;
+  animation: entryOrbitC 4.1s linear infinite;
+}
+
+.entry-loader__pulse {
+  inset: 32%;
+  border: 1px solid rgba(255, 255, 255, 0.88);
+  box-shadow: 0 0 30px rgba(255, 255, 255, 0.85), 0 0 52px rgba(129, 196, 255, 0.22);
+  animation: entryPulseCore 2.4s ease-in-out infinite;
+}
+
 .entry-loader__brand {
   position: relative;
   z-index: 2;
   font-family: var(--font-serif);
   font-style: italic;
-  font-size: clamp(1.8rem, 4vw, 3.2rem);
+  font-size: clamp(2rem, 4.2vw, 3.45rem);
   letter-spacing: -0.04em;
   color: var(--text);
-  text-shadow: 0 8px 24px rgba(255, 255, 255, 0.9);
+  text-shadow: 0 8px 24px rgba(255, 255, 255, 0.96), 0 0 22px rgba(129, 196, 255, 0.16);
   animation: entryBrandLift 1.8s cubic-bezier(0.22, 1, 0.36, 1) infinite alternate;
+}
+
+.entry-loader__subtitle {
+  position: absolute;
+  left: 50%;
+  bottom: 25%;
+  transform: translateX(-50%);
+  font-size: 0.68rem;
+  letter-spacing: 0.34em;
+  text-transform: uppercase;
+  white-space: nowrap;
+  color: rgba(74, 99, 122, 0.76);
 }
 
 .entry-loader__beam {
   width: 42%;
   height: 1px;
   background: linear-gradient(90deg, transparent, rgba(46, 123, 184, 0.72), transparent);
-  bottom: 22%;
+  bottom: 18%;
   filter: blur(0.2px);
   box-shadow: 0 0 18px rgba(46, 123, 184, 0.45);
   animation: entryBeamSweep 2.6s ease-in-out infinite;
@@ -553,6 +613,39 @@ img { display: block; max-width: 100%; height: auto; }
   }
 }
 
+@keyframes entryAuroraSpin {
+  from {
+    transform: rotate(0deg) scale(1);
+  }
+
+  to {
+    transform: rotate(360deg) scale(1.06);
+  }
+}
+
+@keyframes entryGridDrift {
+  from {
+    transform: perspective(900px) rotateX(68deg) scale(1.74) translateY(14%);
+  }
+
+  to {
+    transform: perspective(900px) rotateX(68deg) scale(1.92) translateY(10%);
+  }
+}
+
+@keyframes entryHaloBreathe {
+  0%,
+  100% {
+    transform: scale(0.96);
+    opacity: 0.66;
+  }
+
+  50% {
+    transform: scale(1.05);
+    opacity: 1;
+  }
+}
+
 @keyframes entryRingPulse {
   0%,
   100% {
@@ -599,6 +692,35 @@ img { display: block; max-width: 100%; height: auto; }
   }
 }
 
+@keyframes entryOrbitC {
+  from {
+    transform: rotate(0deg);
+    opacity: 0.5;
+  }
+
+  50% {
+    opacity: 1;
+  }
+
+  to {
+    transform: rotate(360deg);
+    opacity: 0.5;
+  }
+}
+
+@keyframes entryPulseCore {
+  0%,
+  100% {
+    transform: scale(0.8);
+    opacity: 0.42;
+  }
+
+  50% {
+    transform: scale(1.18);
+    opacity: 0.95;
+  }
+}
+
 @keyframes entryBrandLift {
   from {
     transform: translateY(4px);
@@ -640,5 +762,11 @@ img { display: block; max-width: 100%; height: auto; }
   .entry-loader__grid {
     background-size: 28px 28px;
     transform: perspective(700px) rotateX(72deg) scale(1.95) translateY(18%);
+  }
+
+  .entry-loader__subtitle {
+    font-size: 0.55rem;
+    letter-spacing: 0.24em;
+    bottom: 22%;
   }
 }

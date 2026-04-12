@@ -50,18 +50,7 @@ const imageUrl = image
     {imageUrl && <meta name="twitter:image" content={imageUrl} />}
     <script is:inline>
       (function () {
-        const key = 'allen.entryLoader.seen';
-        let shouldAnimate = true;
-
-        try {
-          shouldAnimate = sessionStorage.getItem(key) !== '1';
-        } catch {
-          shouldAnimate = true;
-        }
-
-        window.__allenEntryLoaderKey = key;
-        window.__allenEntryLoaderShouldAnimate = shouldAnimate;
-        document.documentElement.classList.add(shouldAnimate ? 'site-entry-pending' : 'site-entry-skip');
+        document.documentElement.classList.add('site-entry-pending');
       })();
     </script>
     <slot name="head" />
@@ -69,13 +58,19 @@ const imageUrl = image
   <body class:list={['site-shell', pageClass, musicBarOn && 'site-shell--music-bar']}>
     <div id="entry-loader" class="entry-loader" aria-hidden="true">
       <div class="entry-loader__wash"></div>
+      <div class="entry-loader__aurora"></div>
       <div class="entry-loader__grid"></div>
+      <div class="entry-loader__grain"></div>
       <div class="entry-loader__core">
+        <span class="entry-loader__halo"></span>
         <span class="entry-loader__ring entry-loader__ring--outer"></span>
         <span class="entry-loader__ring entry-loader__ring--inner"></span>
         <span class="entry-loader__spark entry-loader__spark--a"></span>
         <span class="entry-loader__spark entry-loader__spark--b"></span>
+        <span class="entry-loader__spark entry-loader__spark--c"></span>
+        <span class="entry-loader__pulse"></span>
         <span class="entry-loader__brand">{siteConfig.title}</span>
+        <span class="entry-loader__subtitle">Digital archive · Security · AI · Code</span>
         <span class="entry-loader__beam"></span>
       </div>
     </div>
@@ -91,13 +86,6 @@ const imageUrl = image
         if (!root) return;
 
         const doc = document.documentElement;
-        const shouldAnimate = window.__allenEntryLoaderShouldAnimate === true;
-        const key = window.__allenEntryLoaderKey || 'allen.entryLoader.seen';
-
-        if (!shouldAnimate) {
-          root.setAttribute('hidden', '');
-          return;
-        }
 
         let finished = false;
 
@@ -107,12 +95,6 @@ const imageUrl = image
           root.classList.add('is-exit');
           doc.classList.remove('site-entry-pending');
           doc.classList.add('site-entry-done');
-
-          try {
-            sessionStorage.setItem(key, '1');
-          } catch {
-            /* empty */
-          }
 
           window.setTimeout(() => {
             root.setAttribute('hidden', '');
@@ -124,18 +106,18 @@ const imageUrl = image
         });
 
         if (document.readyState === 'complete') {
-          window.setTimeout(finish, 1500);
+          window.setTimeout(finish, 1850);
         } else {
           window.addEventListener(
             'load',
             () => {
-              window.setTimeout(finish, 1500);
+              window.setTimeout(finish, 1850);
             },
             { once: true }
           );
         }
 
-        window.setTimeout(finish, 3200);
+        window.setTimeout(finish, 4200);
       })();
     </script>
   </body>
