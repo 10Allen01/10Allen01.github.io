@@ -41,7 +41,7 @@ export const siteConfig = {
   backgroundMusic: {
     enabled: true,
     label: 'Now playing',
-    tracks: [{ title: 'Featured track', src: '/audio/background.mp3' }]
+    tracks: [{ title: 'Featured track', src: '/audio/background.mp3.mp3' }]
   } satisfies BackgroundMusicConfig
 } as const;
 
