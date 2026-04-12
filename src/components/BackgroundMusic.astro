@@ -1,0 +1,389 @@
+---
+import { siteConfig } from '../config/site';
+
+const bm = siteConfig.backgroundMusic;
+
+if (!bm.enabled || bm.tracks.length === 0) {
+  return;
+}
+
+const barLabel = bm.label ?? 'Now playing';
+const tracksEnc = encodeURIComponent(JSON.stringify(bm.tracks));
+const firstTitle = bm.tracks[0].title;
+const showTrackNav = bm.tracks.length > 1;
+---
+
+<div id="music-root" class="music-bar" data-tracks-enc={tracksEnc} role="region" aria-label="Background music">
+  <div class="music-bar__inner">
+    <div class="music-bar__meta">
+      <span class="music-bar__line">
+        <span class="music-bar__eyebrow">{barLabel}</span>
+        <span class="music-bar__sep" aria-hidden="true">·</span>
+        <span id="music-title" class="music-bar__title">{firstTitle}</span>
+      </span>
+    </div>
+
+    <div class:list={['music-bar__transport', !showTrackNav && 'music-bar__transport--single']}>
+      {showTrackNav && (
+        <button type="button" class="music-bar__btn" id="music-prev" aria-label="Previous track" title="Previous">
+          <svg class="music-bar__icon" viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M6 18V6h2v12H6zm3.5-6L18 6v12l-8.5-6z"/></svg>
+        </button>
+      )}
+      <button type="button" class="music-bar__btn music-bar__btn--primary" id="music-toggle" aria-label="Pause" title="Pause">
+        <svg class="music-bar__icon music-bar__icon--play hidden" id="music-icon-play" viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M8 5v14l11-7z"/></svg>
+        <svg class="music-bar__icon music-bar__icon--pause" id="music-icon-pause" viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M6 5h4v14H6V5zm8 0h4v14h-4V5z"/></svg>
+      </button>
+      {showTrackNav && (
+        <button type="button" class="music-bar__btn" id="music-next" aria-label="Next track" title="Next">
+          <svg class="music-bar__icon" viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M16 18h2V6h-2v12zm-9.5-6L15 6v12l-8.5-6z"/></svg>
+        </button>
+      )}
+    </div>
+
+    <div class="music-bar__volume">
+      <label class="music-bar__vol-wrap">
+        <span class="sr-only">Volume</span>
+        <input type="range" id="music-volume" min="0" max="100" value="80" />
+      </label>
+    </div>
+  </div>
+
+  <div class="music-bar__yt-shell" aria-hidden="true">
+    <div id="yt-audio-player"></div>
+  </div>
+</div>
+
+<script is:inline>
+  (function () {
+    const LS = 'allen.bgMusic';
+    const TAB = 'allen.bgMusic.tabPause';
+
+    const root = document.getElementById('music-root');
+    if (!root || !root.dataset.tracksEnc) return;
+
+    let tracks;
+    try {
+      tracks = JSON.parse(decodeURIComponent(root.dataset.tracksEnc));
+    } catch {
+      return;
+    }
+    if (!Array.isArray(tracks) || tracks.length === 0) return;
+
+    const titleEl = document.getElementById('music-title');
+    const prevBtn = document.getElementById('music-prev');
+    const nextBtn = document.getElementById('music-next');
+    const toggleBtn = document.getElementById('music-toggle');
+    const iconPlay = document.getElementById('music-icon-play');
+    const iconPause = document.getElementById('music-icon-pause');
+    const volInput = document.getElementById('music-volume');
+
+    let player = null;
+    let index = 0;
+    let ready = false;
+    let userPaused = false;
+    let saveTimer = null;
+
+    function readStore() {
+      try {
+        const raw = localStorage.getItem(LS);
+        if (!raw) return null;
+        return JSON.parse(raw);
+      } catch {
+        return null;
+      }
+    }
+
+    function writeStore(overrides) {
+      try {
+        const cur = readStore() || {};
+        const st = player && ready && player.getPlayerState ? player.getPlayerState() : -1;
+        const YT = window.YT;
+        const playing = YT && st === YT.PlayerState.PLAYING;
+        const t = player && ready && player.getCurrentTime ? player.getCurrentTime() || 0 : 0;
+        const payload = {
+          index,
+          t: Math.max(0, t),
+          intent: userPaused ? 'pause' : 'play',
+          vol: volInput ? Number(volInput.value) || 80 : 80,
+          at: Date.now(),
+          ...overrides
+        };
+        localStorage.setItem(LS, JSON.stringify(payload));
+      } catch {
+        /* ignore */
+      }
+    }
+
+    function setTitle() {
+      if (titleEl && tracks[index]) titleEl.textContent = tracks[index].title;
+    }
+
+    function syncPlayUi(playing) {
+      if (!toggleBtn) return;
+      toggleBtn.setAttribute('aria-label', playing ? 'Pause' : 'Play');
+      toggleBtn.setAttribute('title', playing ? 'Pause' : 'Play');
+      iconPlay?.classList.toggle('hidden', !!playing);
+      iconPause?.classList.toggle('hidden', !playing);
+    }
+
+    function tryUnmute() {
+      if (!player || !ready) return;
+      try {
+        if (player.unMute) player.unMute();
+        if (player.setVolume && volInput) player.setVolume(Number(volInput.value) || 80);
+      } catch {
+        /* autoplay policy */
+      }
+    }
+
+    function startAutoplayFlow() {
+      if (!player || !ready) return;
+      try {
+        if (player.mute) player.mute();
+        if (player.playVideo) player.playVideo();
+      } catch {
+        /* ignore */
+      }
+      tryUnmute();
+      window.requestAnimationFrame(function () {
+        tryUnmute();
+      });
+      document.addEventListener(
+        'pointerdown',
+        function onceUnmute() {
+          tryUnmute();
+          document.removeEventListener('pointerdown', onceUnmute);
+        },
+        { once: true, passive: true }
+      );
+    }
+
+    function pauseFromHost() {
+      try {
+        if (player && typeof player.pauseVideo === 'function') player.pauseVideo();
+      } catch {
+        /* ignore */
+      }
+    }
+
+    function go(delta) {
+      if (!player || !ready) return;
+      const YT = window.YT;
+      const wasPlaying = YT && player.getPlayerState() === YT.PlayerState.PLAYING;
+      index = (index + delta + tracks.length) % tracks.length;
+      player.loadVideoById({ videoId: tracks[index].videoId });
+      setTitle();
+      userPaused = false;
+      if (wasPlaying && player.playVideo) {
+        if (player.mute) player.mute();
+        player.playVideo();
+        tryUnmute();
+      }
+      writeStore();
+    }
+
+    function onStateChange(event) {
+      const YT = window.YT;
+      if (!YT || !YT.PlayerState) return;
+      if (event.data === YT.PlayerState.ENDED) {
+        userPaused = false;
+        if (tracks.length <= 1) {
+          try {
+            player.seekTo(0, true);
+            if (player.mute) player.mute();
+            if (player.playVideo) player.playVideo();
+            tryUnmute();
+          } catch {
+            /* ignore */
+          }
+          writeStore();
+          return;
+        }
+        index = (index + 1) % tracks.length;
+        player.loadVideoById({ videoId: tracks[index].videoId });
+        setTitle();
+        if (player.mute) player.mute();
+        if (player.playVideo) player.playVideo();
+        tryUnmute();
+        writeStore();
+        return;
+      }
+      if (event.data === YT.PlayerState.PLAYING) {
+        syncPlayUi(true);
+        tryUnmute();
+        return;
+      }
+      if (event.data === YT.PlayerState.PAUSED) {
+        syncPlayUi(false);
+        return;
+      }
+      if (event.data === YT.PlayerState.CUED || event.data === YT.PlayerState.UNSTARTED) {
+        syncPlayUi(false);
+      }
+    }
+
+    function onPlayerReady() {
+      ready = true;
+      const saved = readStore();
+      if (volInput && saved && typeof saved.vol === 'number') {
+        volInput.value = String(Math.max(0, Math.min(100, saved.vol)));
+      }
+      if (player.setVolume && volInput) player.setVolume(Number(volInput.value) || 80);
+
+      setTitle();
+
+      const startT = saved && typeof saved.t === 'number' ? Math.max(0, saved.t) : 0;
+      const wantPause = saved && saved.intent === 'pause';
+
+      if (startT > 0.5) {
+        player.loadVideoById({ videoId: tracks[index].videoId, startSeconds: startT });
+      }
+
+      if (wantPause) {
+        userPaused = true;
+        window.setTimeout(function () {
+          try {
+            player.pauseVideo();
+          } catch {
+            /* ignore */
+          }
+          syncPlayUi(false);
+        }, 200);
+        writeStore();
+        return;
+      }
+
+      userPaused = false;
+      startAutoplayFlow();
+      syncPlayUi(true);
+      writeStore();
+    }
+
+    function createPlayer() {
+      const YT = window.YT;
+      if (!YT || !YT.Player) return;
+
+      const saved = readStore();
+      index = 0;
+      if (saved && typeof saved.index === 'number' && tracks.length > 0) {
+        index = Math.max(0, Math.min(saved.index, tracks.length - 1));
+      }
+
+      player = new YT.Player('yt-audio-player', {
+        height: '1',
+        width: '1',
+        videoId: tracks[index].videoId,
+        playerVars: {
+          enablejsapi: 1,
+          autoplay: 1,
+          mute: 1,
+          playsinline: 1,
+          controls: 0,
+          modestbranding: 1,
+          rel: 0,
+          fs: 0,
+          iv_load_policy: 3
+        },
+        events: {
+          onReady: onPlayerReady,
+          onStateChange: onStateChange
+        }
+      });
+    }
+
+    function initWhenApiReady() {
+      if (window.YT && window.YT.Player) {
+        createPlayer();
+        return;
+      }
+      const previous = window.onYouTubeIframeAPIReady;
+      window.onYouTubeIframeAPIReady = function () {
+        if (typeof previous === 'function') previous();
+        createPlayer();
+      };
+      if (document.querySelector('script[src="https://www.youtube.com/iframe_api"]')) return;
+      const tag = document.createElement('script');
+      tag.src = 'https://www.youtube.com/iframe_api';
+      document.head.appendChild(tag);
+    }
+
+    prevBtn?.addEventListener('click', () => go(-1));
+    nextBtn?.addEventListener('click', () => go(1));
+
+    toggleBtn?.addEventListener('click', () => {
+      if (!player || !ready) return;
+      const YT = window.YT;
+      if (!YT || !YT.PlayerState) return;
+      const st = player.getPlayerState();
+      if (st === YT.PlayerState.PLAYING) {
+        userPaused = true;
+        player.pauseVideo();
+        syncPlayUi(false);
+        writeStore();
+      } else {
+        userPaused = false;
+        if (player.mute) player.mute();
+        player.playVideo();
+        tryUnmute();
+        syncPlayUi(true);
+        writeStore();
+      }
+    });
+
+    volInput?.addEventListener('input', () => {
+      if (!player || !ready || !player.setVolume) return;
+      player.setVolume(Number(volInput.value) || 0);
+      writeStore();
+    });
+
+    document.addEventListener('visibilitychange', function () {
+      if (document.hidden) {
+        const YT = window.YT;
+        const playing = player && ready && YT && player.getPlayerState() === YT.PlayerState.PLAYING;
+        if (playing) {
+          try {
+            sessionStorage.setItem(TAB, '1');
+          } catch {
+            /* ignore */
+          }
+        }
+        writeStore();
+        pauseFromHost();
+      } else {
+        let resume = false;
+        try {
+          resume = sessionStorage.getItem(TAB) === '1';
+          sessionStorage.removeItem(TAB);
+        } catch {
+          resume = false;
+        }
+        const saved = readStore();
+        const wantPlay = saved && saved.intent !== 'pause';
+        if (resume && wantPlay && player && ready) {
+          if (player.mute) player.mute();
+          player.playVideo();
+          tryUnmute();
+          syncPlayUi(true);
+        }
+      }
+    });
+
+    window.addEventListener('pagehide', function () {
+      writeStore();
+      pauseFromHost();
+    });
+
+    window.addEventListener('beforeunload', function () {
+      writeStore();
+      pauseFromHost();
+    });
+
+    saveTimer = window.setInterval(function () {
+      if (!player || !ready) return;
+      const YT = window.YT;
+      if (YT && player.getPlayerState() === YT.PlayerState.PLAYING) writeStore();
+    }, 3000);
+
+    initWhenApiReady();
+  })();
+</script>

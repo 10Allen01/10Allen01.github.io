@@ -1,3 +1,17 @@
+/** YouTube watch URL ?v=… → videoId. Titles show on the site player (edit freely). */
+export type BackgroundMusicTrack = { title: string; videoId: string };
+
+/** Bottom bar player: hidden YouTube engine + on-site controls. Set enabled: false to remove. */
+export type BackgroundMusicConfig =
+  | { enabled: false }
+  | {
+      enabled: true;
+      /** Shown above the song title (e.g. station name). */
+      label?: string;
+      /** Order = play order; after the last track ends, the first plays again. */
+      tracks: [BackgroundMusicTrack, ...BackgroundMusicTrack[]];
+    };
+
 export const siteConfig = {
   title: 'Allen',
   tagline: 'Technical Notes',
@@ -18,7 +32,17 @@ export const siteConfig = {
       label: 'Instagram',
       href: 'https://www.instagram.com/sore.nvoss/'
     }
-  ]
+  ],
+  /**
+   * Bottom “now playing” bar (YouTube-only). Shipped in the static build — it runs on GitHub Pages the same as locally
+   * after you push and the workflow deploys. If playback fails on *.github.io, try another video (embedding must be allowed)
+   * and ensure the browser is not blocking third-party cookies/storage for youtube.com.
+   */
+  backgroundMusic: {
+    enabled: true,
+    label: 'Now playing',
+    tracks: [{ title: 'Featured track', videoId: 'pVyINI8M-Fc' }]
+  } satisfies BackgroundMusicConfig
 } as const;
 
 export const navigation = [
