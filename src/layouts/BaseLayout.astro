@@ -53,6 +53,7 @@ const imageUrl = image
     <script is:inline>
       (function () {
         const navKey = 'allen.site.internalNav';
+        const sessionKey = 'allen.site.sessionEntered';
         let shouldAnimate = true;
 
         try {
@@ -60,8 +61,10 @@ const imageUrl = image
           const referrer = rawReferrer ? new URL(rawReferrer, window.location.href) : null;
           const isSameOriginReferrer = !!referrer && referrer.origin === window.location.origin;
           const hasInternalNavMarker = sessionStorage.getItem(navKey) === '1';
+          const hasEnteredThisSession = sessionStorage.getItem(sessionKey) === '1';
 
-          shouldAnimate = !(hasInternalNavMarker || isSameOriginReferrer);
+          shouldAnimate = !(hasInternalNavMarker || isSameOriginReferrer || hasEnteredThisSession);
+          sessionStorage.setItem(sessionKey, '1');
           sessionStorage.removeItem(navKey);
         } catch {
           shouldAnimate = true;
@@ -117,9 +120,7 @@ const imageUrl = image
           }
         };
 
-        document.addEventListener(
-          'click',
-          (event) => {
+        const handleInternalNavigationIntent = (event) => {
             if (event.defaultPrevented || event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) {
               return;
             }
@@ -143,9 +144,10 @@ const imageUrl = image
             if (url.pathname === window.location.pathname && url.search === window.location.search) return;
 
             markInternalNavigation();
-          },
-          { capture: true }
-        );
+          };
+
+        document.addEventListener('pointerdown', handleInternalNavigationIntent, { capture: true });
+        document.addEventListener('click', handleInternalNavigationIntent, { capture: true });
 
         document.addEventListener('astro:before-preparation', markInternalNavigation);
 
