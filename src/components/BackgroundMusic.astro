@@ -21,7 +21,6 @@ const showTrackNav = bm.tracks.length > 1;
         <span class="music-bar__sep" aria-hidden="true">·</span>
         <span id="music-title" class="music-bar__title">{firstTitle}</span>
       </span>
-      <span id="music-status" style="display: block; margin-top: 2px; font-size: 0.72rem; color: var(--text-3);">Loading player…</span>
     </div>
 
     <div class:list={['music-bar__transport', !showTrackNav && 'music-bar__transport--single']}>
@@ -57,7 +56,6 @@ const showTrackNav = bm.tracks.length > 1;
 <script is:inline>
   (function () {
     const LS = 'allen.bgMusic';
-    const TAB = 'allen.bgMusic.tabPause';
 
     const root = document.getElementById('music-root');
     if (!root || !root.dataset.tracksEnc) return;
@@ -330,6 +328,21 @@ const showTrackNav = bm.tracks.length > 1;
       }
     }
 
+    function pauseImmediatelyOnLeave() {
+      if (!player) return;
+
+      clearFade();
+      syncPlayUi(false);
+
+      try {
+        if (typeof player.setVolume === 'function') player.setVolume(0);
+        if (typeof player.mute === 'function') player.mute();
+        if (typeof player.pauseVideo === 'function') player.pauseVideo();
+      } catch {
+        /* ignore */
+      }
+    }
+
     function pauseWithFade(markUserPaused, finalStatus = 'Paused.') {
       if (!player || !ready) return;
 
@@ -544,41 +557,24 @@ const showTrackNav = bm.tracks.length > 1;
 
     document.addEventListener('visibilitychange', function () {
       if (document.hidden) {
-        const YT = window.YT;
-        const playing = player && ready && YT && player.getPlayerState() === YT.PlayerState.PLAYING;
-        if (playing) {
-          try {
-            sessionStorage.setItem(TAB, '1');
-          } catch {
-            /* ignore */
-          }
-        }
         writeStore();
-        pauseWithFade(false, 'Paused while tab is hidden.');
-      } else {
-        let resume = false;
-        try {
-          resume = sessionStorage.getItem(TAB) === '1';
-          sessionStorage.removeItem(TAB);
-        } catch {
-          resume = false;
-        }
-        const saved = readStore();
-        const wantPlay = saved && saved.intent !== 'pause';
-        if (resume && wantPlay && player && ready) {
-          startAutoplayFlow();
-        }
+        pauseImmediatelyOnLeave();
       }
+    });
+
+    window.addEventListener('blur', function () {
+      writeStore();
+      pauseImmediatelyOnLeave();
     });
 
     window.addEventListener('pagehide', function () {
       writeStore();
-      pauseFromHost();
+      pauseImmediatelyOnLeave();
     });
 
     window.addEventListener('beforeunload', function () {
       writeStore();
-      pauseFromHost();
+      pauseImmediatelyOnLeave();
     });
 
     saveTimer = window.setInterval(function () {
