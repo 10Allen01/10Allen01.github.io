@@ -1,5 +1,6 @@
 ---
 import BaseLayout from '../layouts/BaseLayout.astro';
+import { POST_EXCERPT_MAX_LEN, POST_EXCERPT_MIN_LEN } from '../lib/post-excerpt-limits';
 
 const starterBody = `## Overview
 
@@ -96,8 +97,8 @@ const isStudioAvailable = import.meta.env.DEV;
                 </label>
 
                 <label class="field field--wide" style="grid-column: 1 / -1; max-width: 100%;">
-                  <span>Excerpt</span>
-                  <textarea id="excerpt" name="excerpt" placeholder="Short summary used in cards and metadata." required style="width:100%; border: 1px solid var(--border); padding: 12px; border-radius: 4px; min-height: 88px;"></textarea>
+                  <span style="display: flex; flex-wrap: wrap; align-items: baseline; gap: 8px;">Excerpt <small id="excerpt-count" style="color: var(--text-3); font-weight: normal;">0 / {POST_EXCERPT_MAX_LEN}</small></span>
+                  <textarea id="excerpt" name="excerpt" placeholder={`Short summary for cards, Open Graph, and RSS (${POST_EXCERPT_MIN_LEN}–${POST_EXCERPT_MAX_LEN} characters).`} required style="width:100%; border: 1px solid var(--border); padding: 12px; border-radius: 4px; min-height: 120px;"></textarea>
                 </label>
 
                 <label class="field" style="max-width: 100%;">
@@ -169,7 +170,7 @@ const isStudioAvailable = import.meta.env.DEV;
             </article>
 
             <article class="preview-card">
-              <span class="eyebrow">Publish plan</span>
+              <span class="eyebrow">Files to publish</span>
               <pre class="code-like" id="file-plan" style="margin-top: 16px; padding: 16px; background: #0b1521; color: #e0eff8; border-radius: 4px; font-size: 0.85rem; overflow-x: auto;">owner/repo@main
 src/content/posts/your-slug.md
 public/images/posts/your-slug/...</pre>

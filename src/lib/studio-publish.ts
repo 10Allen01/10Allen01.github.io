@@ -1,3 +1,5 @@
+import { POST_EXCERPT_MAX_LEN, POST_EXCERPT_MIN_LEN } from './post-excerpt-limits';
+
 type StudioInitOptions = {
   starterBody: string;
 };
@@ -102,6 +104,27 @@ const parseTags = (raw: string) => {
     .split(',')
     .map((tag) => tag.trim())
     .filter(Boolean);
+};
+
+const MIME_EXTENSION_MAP: Record<string, string> = {
+  'image/jpeg': 'jpg',
+  'image/jpg': 'jpg',
+  'image/png': 'png',
+  'image/webp': 'webp',
+  'image/gif': 'gif',
+  'image/svg+xml': 'svg',
+  'image/avif': 'avif',
+  'image/bmp': 'bmp',
+  'image/tiff': 'tiff'
+};
+
+const getFileExtension = (file: Pick<File, 'name' | 'type'>) => {
+  const match = file.name.toLowerCase().match(/\.([a-z0-9]+)$/);
+  if (match?.[1]) {
+    return match[1];
+  }
+
+  return MIME_EXTENSION_MAP[file.type] || 'jpg';
 };
 
 const createImageMarkdown = (entries: PublishImageEntry[]) => {
@@ -390,19 +413,21 @@ export const initStudioPublisher = ({ starterBody }: StudioInitOptions) => {
     const owner = repoOwnerInput.value.trim() || 'owner';
     const repo = repoNameInput.value.trim() || 'repo';
     const branch = repoBranchInput.value.trim() || 'main';
-    const coverName = state.coverFile ? `${slug}/${slugify(state.coverFile.name.replace(/\.[^.]+$/, ''))}.${state.coverFile.name.split('.').pop()?.toLowerCase() || 'jpg'}` : `${slug}/cover-image.ext`;
+    const coverName = state.coverFile
+      ? `${slug}/${sanitizeImageName(state.coverFile)}`
+      : `${slug}/[no cover selected]`;
     const imageLines = state.imageFiles.length > 0
-      ? state.imageFiles.map((file) => `public/images/posts/${slug}/${sanitizeImageName(file.name)}`).join('\n')
-      : `public/images/posts/${slug}/image-01.ext`;
+      ? state.imageFiles.map((file, index) => `public/images/posts/${slug}/${sanitizeImageName(file, `${String(index + 1).padStart(2, '0')}-`)}`).join('\n')
+      : `public/images/posts/${slug}/[no post images selected]`;
 
     filePlan.textContent = `${owner}/${repo}@${branch}\nsrc/content/posts/${slug}.md\npublic/images/posts/${coverName}\n${imageLines}`;
   };
 
-  const sanitizeImageName = (name: string) => {
-    const parts = name.split('.');
-    const extension = parts.length > 1 ? parts.pop()?.toLowerCase() || 'jpg' : 'jpg';
-    const baseName = parts.join('.') || 'image';
-    return `${slugify(baseName)}.${extension}`;
+  const sanitizeImageName = (file: Pick<File, 'name' | 'type'>, prefix = '') => {
+    const extension = getFileExtension(file);
+    const baseName = file.name.replace(/\.[^.]+$/, '') || 'image';
+    const normalizedBaseName = `${prefix}${baseName}`;
+    return `${slugify(normalizedBaseName)}.${extension}`;
   };
 
   const updatePreview = () => {
@@ -417,6 +442,14 @@ export const initStudioPublisher = ({ starterBody }: StudioInitOptions) => {
     previewDate.textContent = publishedAtInput.value || today;
     previewTitle.textContent = titleInput.value.trim() || 'Preview title';
     previewExcerpt.textContent = excerptInput.value.trim() || 'The excerpt appears here as you type.';
+
+    const excerptCount = document.querySelector<HTMLElement>('#excerpt-count');
+    if (excerptCount) {
+      const len = excerptInput.value.trim().length;
+      excerptCount.textContent = `${len} / ${POST_EXCERPT_MAX_LEN}`;
+      const inRange = len >= POST_EXCERPT_MIN_LEN && len <= POST_EXCERPT_MAX_LEN;
+      excerptCount.style.color = len === 0 ? 'var(--text-3)' : inRange ? 'var(--text-3)' : '#c96';
+    }
     previewBody.innerHTML = bodyInput.value.trim() ? renderPreviewBody(bodyInput.value.trim()) : '<p>Body preview appears here.</p>';
     previewTags.innerHTML = tags.length > 0
       ? tags.map((tag) => `<span class="tag">#${escapeHtml(tag)}</span>`).join('')
@@ -502,6 +535,15 @@ export const initStudioPublisher = ({ starterBody }: StudioInitOptions) => {
       return;
     }
 
+    if (excerpt.length < POST_EXCERPT_MIN_LEN || excerpt.length > POST_EXCERPT_MAX_LEN) {
+      setStatus(
+        'Excerpt length',
+        `Excerpt must be between ${POST_EXCERPT_MIN_LEN} and ${POST_EXCERPT_MAX_LEN} characters (current: ${excerpt.length}).`,
+        'status-error'
+      );
+      return;
+    }
+
     let config: RepoConfig;
 
     try {
@@ -525,7 +567,7 @@ export const initStudioPublisher = ({ starterBody }: StudioInitOptions) => {
 
       let coverPath = '';
       if (state.coverFile) {
-        const coverFileName = sanitizeImageName(state.coverFile.name);
+        const coverFileName = sanitizeImageName(state.coverFile);
         coverPath = `/images/posts/${slug}/${coverFileName}`;
         files.push({
           path: `public/images/posts/${slug}/${coverFileName}`,
@@ -535,7 +577,7 @@ export const initStudioPublisher = ({ starterBody }: StudioInitOptions) => {
       }
 
       for (const [index, file] of state.imageFiles.entries()) {
-        const imageFileName = sanitizeImageName(`${String(index + 1).padStart(2, '0')}-${file.name}`);
+        const imageFileName = sanitizeImageName(file, `${String(index + 1).padStart(2, '0')}-`);
         const imagePath = `/images/posts/${slug}/${imageFileName}`;
         imageEntries.push({
           src: imagePath,
