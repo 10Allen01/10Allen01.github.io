@@ -204,17 +204,11 @@ const showTrackNav = bm.tracks.length > 1;
       }
 
       syncPlayUi(true);
-      setStatus('Fading in…', false);
+      setStatus('Starting…', false);
 
       window.setTimeout(function () {
-        const YT = window.YT;
-        const st = player && player.getPlayerState ? player.getPlayerState() : -1;
-        const started = YT && (st === YT.PlayerState.PLAYING || st === YT.PlayerState.BUFFERING);
-        if (!started) {
-          setStatus('Playback is blocked or the video cannot start here.', true);
-          syncPlayUi(false);
-          return;
-        }
+        tryUnmute();
+        setStatus('Fading in…', false);
 
         fadeVolumeTo(targetVolume, FADE_IN_MS, function () {
           const muted = player && typeof player.isMuted === 'function' ? player.isMuted() : false;
@@ -287,7 +281,7 @@ const showTrackNav = bm.tracks.length > 1;
       }
 
       syncPlayUi(true);
-      setStatus('Autoplay requested. Fading in…', false);
+      setStatus('Autoplay requested…', false);
 
       window.setTimeout(function () {
         const YT = window.YT;
@@ -301,6 +295,7 @@ const showTrackNav = bm.tracks.length > 1;
         }
 
         tryUnmute();
+        setStatus('Fading in…', false);
         fadeVolumeTo(targetVolume, FADE_IN_MS, function () {
           const muted = player && typeof player.isMuted === 'function' ? player.isMuted() : false;
           if (muted) {
@@ -311,7 +306,7 @@ const showTrackNav = bm.tracks.length > 1;
 
           setStatus('Playing.', false);
         });
-      }, 300);
+      }, 900);
 
       document.addEventListener(
         'pointerdown',
