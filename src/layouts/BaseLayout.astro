@@ -1,5 +1,6 @@
 ---
 import '../styles/global.css';
+import { ViewTransitions } from 'astro:transitions';
 import BackgroundMusic from '../components/BackgroundMusic.astro';
 import SiteFooter from '../components/SiteFooter.astro';
 import SiteHeader from '../components/SiteHeader.astro';
@@ -33,6 +34,7 @@ const imageUrl = image
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <meta name="generator" content={Astro.generator} />
+    <ViewTransitions />
     <title>{pageTitle}</title>
     <meta name="description" content={description} />
     <meta name="theme-color" content="#f9fbff" />
