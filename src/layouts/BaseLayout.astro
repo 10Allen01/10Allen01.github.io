@@ -123,6 +123,10 @@ const imageUrl = image
         ];
 
         let navController = null;
+        let navRequestId = 0;
+        const prefetchedPages = new Map();
+        const prefetchedStyles = new Set();
+        const PREFETCH_LIMIT = 12;
 
         const markInternalNavigation = () => {
           try {
@@ -132,8 +136,20 @@ const imageUrl = image
           }
         };
 
+        const canHandleNavigationEvent = (event) => {
+          if (event.defaultPrevented || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) {
+            return false;
+          }
+
+          if ('button' in event && typeof event.button === 'number' && event.button !== 0) {
+            return false;
+          }
+
+          return true;
+        };
+
         const handleInternalNavigationIntent = (event) => {
-            if (event.defaultPrevented || event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) {
+            if (!canHandleNavigationEvent(event)) {
               return;
             }
 
@@ -156,7 +172,14 @@ const imageUrl = image
             if (url.pathname === window.location.pathname && url.search === window.location.search) return;
 
             markInternalNavigation();
+            prefetchPage(url);
           };
+
+        const normalizeUrl = (url) => {
+          const normalized = new URL(url.href);
+          normalized.hash = '';
+          return normalized.href;
+        };
 
         const getInternalUrl = (anchor) => {
           if (!(anchor instanceof HTMLAnchorElement)) return null;
@@ -205,6 +228,94 @@ const imageUrl = image
           } else {
             currentTag.removeAttribute('content');
           }
+        };
+
+        const prefetchStylesheets = (nextDoc) => {
+          const headHrefs = new Set(
+            Array.from(document.querySelectorAll('head link[href]')).map((link) =>
+              new URL(link.getAttribute('href') || '', window.location.href).href
+            )
+          );
+
+          Array.from(nextDoc.querySelectorAll('head link[rel="stylesheet"][href]')).forEach((link) => {
+            const href = new URL(link.getAttribute('href') || '', window.location.href).href;
+
+            if (headHrefs.has(href) || prefetchedStyles.has(href)) {
+              return;
+            }
+
+            const preload = document.createElement('link');
+            preload.rel = 'preload';
+            preload.as = 'style';
+            preload.href = href;
+            document.head.appendChild(preload);
+            prefetchedStyles.add(href);
+          });
+        };
+
+        const fetchPage = (url) => {
+          const key = normalizeUrl(url);
+          const cached = prefetchedPages.get(key);
+          if (cached) {
+            return cached;
+          }
+
+          const pending = fetch(key, {
+            headers: {
+              'X-Allen-Navigation': '1'
+            }
+          })
+            .then(async (response) => {
+              if (!response.ok) {
+                throw new Error('fetch_failed');
+              }
+
+              const html = await response.text();
+              const nextDoc = new DOMParser().parseFromString(html, 'text/html');
+              const nextFrame = nextDoc.getElementById('site-frame');
+
+              if (!(nextFrame instanceof HTMLElement) || !(nextDoc.body instanceof HTMLBodyElement)) {
+                throw new Error('frame_missing');
+              }
+
+              prefetchStylesheets(nextDoc);
+              return { nextDoc };
+            })
+            .catch((error) => {
+              prefetchedPages.delete(key);
+              throw error;
+            });
+
+          prefetchedPages.set(key, pending);
+          return pending;
+        };
+
+        const prefetchPage = (url) => {
+          fetchPage(url).catch(() => {
+            return null;
+          });
+        };
+
+        const scheduleLinkPrefetch = () => {
+          const seen = new Set();
+          let count = 0;
+
+          Array.from(frame.querySelectorAll('a[href]')).forEach((anchor) => {
+            if (count >= PREFETCH_LIMIT) {
+              return;
+            }
+
+            const url = getInternalUrl(anchor);
+            if (!url) return;
+            if (url.pathname === window.location.pathname && url.search === window.location.search) return;
+
+            const key = normalizeUrl(url);
+            if (seen.has(key)) return;
+
+            seen.add(key);
+            count += 1;
+            prefetchPage(url);
+          });
         };
 
         const syncStylesheets = async (nextDoc) => {
@@ -282,23 +393,16 @@ const imageUrl = image
           }
 
           navController = new AbortController();
+          const requestId = ++navRequestId;
           markInternalNavigation();
 
           try {
-            const response = await fetch(url.href, {
-              signal: navController.signal,
-              headers: {
-                'X-Allen-Navigation': '1'
-              }
-            });
-
-            if (!response.ok) {
-              window.location.href = url.href;
+            const prepared = await fetchPage(url);
+            if (requestId !== navRequestId) {
               return;
             }
 
-            const html = await response.text();
-            const nextDoc = new DOMParser().parseFromString(html, 'text/html');
+            const nextDoc = prepared.nextDoc;
             const nextFrame = nextDoc.getElementById('site-frame');
 
             if (!(nextFrame instanceof HTMLElement) || !(nextDoc.body instanceof HTMLBodyElement)) {
@@ -307,10 +411,14 @@ const imageUrl = image
             }
 
             await syncHead(nextDoc);
+            if (requestId !== navRequestId) {
+              return;
+            }
 
             document.body.className = nextDoc.body.className;
             frame.innerHTML = nextFrame.innerHTML;
             runFrameScripts();
+            window.setTimeout(scheduleLinkPrefetch, 0);
 
             try {
               sessionStorage.removeItem(navKey);
@@ -334,13 +442,14 @@ const imageUrl = image
           }
         };
 
-        document.addEventListener('pointerdown', handleInternalNavigationIntent, { capture: true });
+        document.addEventListener('pointerdown', handleInternalNavigationIntent, { capture: true, passive: true });
+        document.addEventListener('touchstart', handleInternalNavigationIntent, { capture: true, passive: true });
         document.addEventListener(
           'click',
           (event) => {
             handleInternalNavigationIntent(event);
 
-            if (event.defaultPrevented || event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) {
+            if (!canHandleNavigationEvent(event)) {
               return;
             }
 
@@ -366,6 +475,7 @@ const imageUrl = image
         });
 
         window.history.replaceState({}, '', window.location.href);
+        window.setTimeout(scheduleLinkPrefetch, 0);
 
         if (!shouldAnimate) {
           doc.classList.remove('site-entry-pending');
