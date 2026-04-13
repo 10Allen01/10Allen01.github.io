@@ -93,40 +93,20 @@ const imageUrl = image
         <span class="entry-loader__beam"></span>
       </div>
     </div>
-    <div id="site-frame">
-      <SiteHeader />
-      <main class="page-main">
-        <slot />
-      </main>
-      <SiteFooter />
-    </div>
+    <SiteHeader />
+    <main class="page-main">
+      <slot />
+    </main>
+    <SiteFooter />
     <BackgroundMusic />
     <script is:inline>
       (function () {
         const root = document.getElementById('entry-loader');
-        const frame = document.getElementById('site-frame');
-        if (!root || !frame) return;
+        if (!root) return;
 
         const doc = document.documentElement;
         const navKey = 'allen.site.internalNav';
         const shouldAnimate = window.__allenEntryLoaderShouldAnimate === true;
-        const headSyncSelectors = [
-          'link[rel="canonical"]',
-          'meta[name="description"]',
-          'meta[property="og:title"]',
-          'meta[property="og:description"]',
-          'meta[property="og:url"]',
-          'meta[property="og:image"]',
-          'meta[name="twitter:title"]',
-          'meta[name="twitter:description"]',
-          'meta[name="twitter:image"]'
-        ];
-
-        let navController = null;
-        let navRequestId = 0;
-        const prefetchedPages = new Map();
-        const prefetchedStyles = new Set();
-        const PREFETCH_LIMIT = 12;
 
         const markInternalNavigation = () => {
           try {
@@ -136,20 +116,8 @@ const imageUrl = image
           }
         };
 
-        const canHandleNavigationEvent = (event) => {
-          if (event.defaultPrevented || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) {
-            return false;
-          }
-
-          if ('button' in event && typeof event.button === 'number' && event.button !== 0) {
-            return false;
-          }
-
-          return true;
-        };
-
         const handleInternalNavigationIntent = (event) => {
-            if (!canHandleNavigationEvent(event)) {
+            if (event.defaultPrevented || event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) {
               return;
             }
 
@@ -172,310 +140,10 @@ const imageUrl = image
             if (url.pathname === window.location.pathname && url.search === window.location.search) return;
 
             markInternalNavigation();
-            prefetchPage(url);
           };
 
-        const normalizeUrl = (url) => {
-          const normalized = new URL(url.href);
-          normalized.hash = '';
-          return normalized.href;
-        };
-
-        const getInternalUrl = (anchor) => {
-          if (!(anchor instanceof HTMLAnchorElement)) return null;
-          if (!anchor.href || anchor.target && anchor.target !== '_self') return null;
-          if (anchor.hasAttribute('download') || anchor.getAttribute('rel') === 'external') return null;
-
-          let url;
-          try {
-            url = new URL(anchor.href, window.location.href);
-          } catch {
-            return null;
-          }
-
-          if (url.origin !== window.location.origin) return null;
-          if (url.protocol !== 'http:' && url.protocol !== 'https:') return null;
-          return url;
-        };
-
-        const syncHeadTag = (nextDoc, selector) => {
-          const nextTag = nextDoc.querySelector(selector);
-          const currentTag = document.querySelector(selector);
-
-          if (!nextTag) {
-            currentTag?.remove();
-            return;
-          }
-
-          if (!currentTag) {
-            document.head.appendChild(nextTag.cloneNode(true));
-            return;
-          }
-
-          if (currentTag.tagName === 'LINK') {
-            const href = nextTag.getAttribute('href');
-            if (href) {
-              currentTag.setAttribute('href', href);
-            } else {
-              currentTag.removeAttribute('href');
-            }
-            return;
-          }
-
-          const content = nextTag.getAttribute('content');
-          if (content !== null) {
-            currentTag.setAttribute('content', content);
-          } else {
-            currentTag.removeAttribute('content');
-          }
-        };
-
-        const prefetchStylesheets = (nextDoc) => {
-          const headHrefs = new Set(
-            Array.from(document.querySelectorAll('head link[href]')).map((link) =>
-              new URL(link.getAttribute('href') || '', window.location.href).href
-            )
-          );
-
-          Array.from(nextDoc.querySelectorAll('head link[rel="stylesheet"][href]')).forEach((link) => {
-            const href = new URL(link.getAttribute('href') || '', window.location.href).href;
-
-            if (headHrefs.has(href) || prefetchedStyles.has(href)) {
-              return;
-            }
-
-            const preload = document.createElement('link');
-            preload.rel = 'preload';
-            preload.as = 'style';
-            preload.href = href;
-            document.head.appendChild(preload);
-            prefetchedStyles.add(href);
-          });
-        };
-
-        const fetchPage = (url) => {
-          const key = normalizeUrl(url);
-          const cached = prefetchedPages.get(key);
-          if (cached) {
-            return cached;
-          }
-
-          const pending = fetch(key, {
-            headers: {
-              'X-Allen-Navigation': '1'
-            }
-          })
-            .then(async (response) => {
-              if (!response.ok) {
-                throw new Error('fetch_failed');
-              }
-
-              const html = await response.text();
-              const nextDoc = new DOMParser().parseFromString(html, 'text/html');
-              const nextFrame = nextDoc.getElementById('site-frame');
-
-              if (!(nextFrame instanceof HTMLElement) || !(nextDoc.body instanceof HTMLBodyElement)) {
-                throw new Error('frame_missing');
-              }
-
-              prefetchStylesheets(nextDoc);
-              return { nextDoc };
-            })
-            .catch((error) => {
-              prefetchedPages.delete(key);
-              throw error;
-            });
-
-          prefetchedPages.set(key, pending);
-          return pending;
-        };
-
-        const prefetchPage = (url) => {
-          fetchPage(url).catch(() => {
-            return null;
-          });
-        };
-
-        const scheduleLinkPrefetch = () => {
-          const seen = new Set();
-          let count = 0;
-
-          Array.from(frame.querySelectorAll('a[href]')).forEach((anchor) => {
-            if (count >= PREFETCH_LIMIT) {
-              return;
-            }
-
-            const url = getInternalUrl(anchor);
-            if (!url) return;
-            if (url.pathname === window.location.pathname && url.search === window.location.search) return;
-
-            const key = normalizeUrl(url);
-            if (seen.has(key)) return;
-
-            seen.add(key);
-            count += 1;
-            prefetchPage(url);
-          });
-        };
-
-        const syncStylesheets = async (nextDoc) => {
-          const currentLinks = Array.from(document.querySelectorAll('head link[rel="stylesheet"][href]'));
-          const nextLinks = Array.from(nextDoc.querySelectorAll('head link[rel="stylesheet"][href]'));
-          const currentMap = new Map(
-            currentLinks.map((link) => [new URL(link.getAttribute('href') || '', window.location.href).href, link])
-          );
-          const nextHrefs = nextLinks.map((link) => new URL(link.getAttribute('href') || '', window.location.href).href);
-
-          await Promise.all(
-            nextLinks.map((link) => {
-              const href = new URL(link.getAttribute('href') || '', window.location.href).href;
-              if (currentMap.has(href)) {
-                return Promise.resolve();
-              }
-
-              return new Promise((resolve) => {
-                const clone = document.createElement('link');
-                clone.rel = 'stylesheet';
-                clone.href = href;
-                clone.onload = () => resolve();
-                clone.onerror = () => resolve();
-                document.head.appendChild(clone);
-              });
-            })
-          );
-
-          currentMap.forEach((link, href) => {
-            if (!nextHrefs.includes(href)) {
-              link.remove();
-            }
-          });
-        };
-
-        const runFrameScripts = () => {
-          const scripts = Array.from(frame.querySelectorAll('script'));
-
-          scripts.forEach((oldScript) => {
-            const newScript = document.createElement('script');
-
-            Array.from(oldScript.attributes).forEach((attribute) => {
-              newScript.setAttribute(attribute.name, attribute.value);
-            });
-
-            newScript.textContent = oldScript.textContent;
-            oldScript.replaceWith(newScript);
-          });
-        };
-
-        const syncHead = async (nextDoc) => {
-          document.title = nextDoc.title;
-          doc.lang = nextDoc.documentElement.lang || doc.lang;
-
-          await syncStylesheets(nextDoc);
-          headSyncSelectors.forEach((selector) => syncHeadTag(nextDoc, selector));
-        };
-
-        const scrollToTarget = (url) => {
-          if (url.hash) {
-            const targetId = decodeURIComponent(url.hash.slice(1));
-            const target = document.getElementById(targetId);
-            if (target) {
-              target.scrollIntoView();
-              return;
-            }
-          }
-
-          window.scrollTo(0, 0);
-        };
-
-        const navigateTo = async (url, options = {}) => {
-          if (navController) {
-            navController.abort();
-          }
-
-          navController = new AbortController();
-          const requestId = ++navRequestId;
-          markInternalNavigation();
-
-          try {
-            const prepared = await fetchPage(url);
-            if (requestId !== navRequestId) {
-              return;
-            }
-
-            const nextDoc = prepared.nextDoc;
-            const nextFrame = nextDoc.getElementById('site-frame');
-
-            if (!(nextFrame instanceof HTMLElement) || !(nextDoc.body instanceof HTMLBodyElement)) {
-              window.location.href = url.href;
-              return;
-            }
-
-            await syncHead(nextDoc);
-            if (requestId !== navRequestId) {
-              return;
-            }
-
-            document.body.className = nextDoc.body.className;
-            frame.innerHTML = nextFrame.innerHTML;
-            runFrameScripts();
-            window.setTimeout(scheduleLinkPrefetch, 0);
-
-            try {
-              sessionStorage.removeItem(navKey);
-            } catch {
-              /* empty */
-            }
-
-            if (options.updateHistory !== false) {
-              const historyMethod = options.replace === true ? 'replaceState' : 'pushState';
-              window.history[historyMethod]({}, '', url.href);
-            }
-
-            scrollToTarget(url);
-            document.dispatchEvent(new CustomEvent('allen:navigation-complete', { detail: { href: url.href } }));
-          } catch (error) {
-            if (error && typeof error === 'object' && 'name' in error && error.name === 'AbortError') {
-              return;
-            }
-
-            window.location.href = url.href;
-          }
-        };
-
-        document.addEventListener('pointerdown', handleInternalNavigationIntent, { capture: true, passive: true });
-        document.addEventListener('touchstart', handleInternalNavigationIntent, { capture: true, passive: true });
-        document.addEventListener(
-          'click',
-          (event) => {
-            handleInternalNavigationIntent(event);
-
-            if (!canHandleNavigationEvent(event)) {
-              return;
-            }
-
-            const target = event.target;
-            if (!(target instanceof Element)) return;
-
-            const anchor = target.closest('a[href]');
-            const url = getInternalUrl(anchor);
-            if (!url) return;
-
-            if (url.pathname === window.location.pathname && url.search === window.location.search) {
-              return;
-            }
-
-            event.preventDefault();
-            navigateTo(url);
-          },
-          { capture: true }
-        );
-
-        window.addEventListener('popstate', () => {
-          navigateTo(new URL(window.location.href), { updateHistory: false, replace: true });
-        });
-
-        window.history.replaceState({}, '', window.location.href);
-        window.setTimeout(scheduleLinkPrefetch, 0);
+        document.addEventListener('pointerdown', handleInternalNavigationIntent, { capture: true });
+        document.addEventListener('click', handleInternalNavigationIntent, { capture: true });
 
         if (!shouldAnimate) {
           doc.classList.remove('site-entry-pending');
