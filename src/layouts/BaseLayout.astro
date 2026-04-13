@@ -26,6 +26,8 @@ const canonicalUrl = new URL(Astro.url.pathname, Astro.site ?? Astro.url).toStri
 const imageUrl = image
   ? new URL(image.startsWith('http') ? image : withBase(image), Astro.site ?? Astro.url).toString()
   : undefined;
+const buildId = (process.env.GITHUB_SHA || process.env.VERCEL_GIT_COMMIT_SHA || process.env.COMMIT_REF || 'dev').slice(0, 12);
+const versionUrl = withBase('/version.json');
 ---
 
 <!doctype html>
@@ -41,6 +43,7 @@ const imageUrl = image
     <link rel="canonical" href={canonicalUrl} />
     <link rel="icon" type="image/svg+xml" href={withBase('/favicon.svg')} />
     <link rel="manifest" href={withBase('/site.webmanifest')} />
+    <meta name="allen-build-id" content={buildId} />
     <meta property="og:type" content="website" />
     <meta property="og:title" content={pageTitle} />
     <meta property="og:description" content={description} />
@@ -50,6 +53,57 @@ const imageUrl = image
     <meta name="twitter:title" content={pageTitle} />
     <meta name="twitter:description" content={description} />
     {imageUrl && <meta name="twitter:image" content={imageUrl} />}
+    <script is:inline define:vars={{ buildId, versionUrl }}>
+      (function () {
+        if (buildId === 'dev') return;
+
+        const storageKey = 'allen.site.latestBuild';
+
+        try {
+          const url = new URL(window.location.href);
+          if (url.searchParams.get('v') === buildId) {
+            url.searchParams.delete('v');
+            window.history.replaceState({}, '', url.toString());
+          }
+        } catch {}
+
+        window.setTimeout(function () {
+          fetch(`${versionUrl}?t=${Date.now()}`, { cache: 'no-store' })
+            .then(function (response) {
+              if (!response.ok) return null;
+              return response.json();
+            })
+            .then(function (payload) {
+              const latestBuild = payload && typeof payload.buildId === 'string' ? payload.buildId : '';
+              if (!latestBuild) return;
+
+              try {
+                localStorage.setItem(storageKey, latestBuild);
+              } catch {}
+
+              if (latestBuild === buildId) {
+                return;
+              }
+
+              const nextUrl = new URL(window.location.href);
+              nextUrl.searchParams.set('v', latestBuild);
+              window.location.replace(nextUrl.toString());
+            })
+            .catch(function () {
+              try {
+                const latestBuild = localStorage.getItem(storageKey);
+                if (!latestBuild || latestBuild === buildId) {
+                  return;
+                }
+
+                const nextUrl = new URL(window.location.href);
+                nextUrl.searchParams.set('v', latestBuild);
+                window.location.replace(nextUrl.toString());
+              } catch {}
+            });
+        }, 0);
+      })();
+    </script>
     <script is:inline>
       (function () {
         const navKey = 'allen.site.internalNav';
