@@ -49,6 +49,7 @@ const showTrackNav = bm.tracks.length > 1;
   </div>
 
   <audio id="music-audio" preload="auto" style="display: none;"></audio>
+  <audio id="music-audio-alt" preload="auto" style="display: none;"></audio>
 </div>
 
 <script is:inline>
@@ -57,8 +58,9 @@ const showTrackNav = bm.tracks.length > 1;
     const NAV = 'allen.site.internalNav';
     const NAV_TTL_MS = 2500;
     const root = document.getElementById('music-root');
-    const audio = document.getElementById('music-audio');
-    if (!root || !root.dataset.tracksEnc || !(audio instanceof HTMLAudioElement)) return;
+    const primaryAudio = document.getElementById('music-audio');
+    const secondaryAudio = document.getElementById('music-audio-alt');
+    if (!root || !root.dataset.tracksEnc || !(primaryAudio instanceof HTMLAudioElement) || !(secondaryAudio instanceof HTMLAudioElement)) return;
     if (root.dataset.initialized === '1') return;
 
     root.dataset.initialized = '1';
@@ -82,16 +84,25 @@ const showTrackNav = bm.tracks.length > 1;
     const DEFAULT_VOLUME = 28;
     const FADE_IN_MS = 1400;
     const FADE_OUT_MS = 450;
+    const SWITCH_FADE_MS = 650;
     const FADE_TICK_MS = 50;
     const BLUR_PAUSE_DELAY_MS = 180;
+    const PRELOAD_DELAY_MS = 180;
 
     let index = 0;
     let userPaused = false;
     let saveTimer = null;
-    let fadeTimer = null;
     let blurPauseTimer = null;
+    let preloadTimer = null;
     let autoplayBlocked = false;
     let resumeAfterReturn = false;
+    let activeAudio = primaryAudio;
+    let inactiveAudio = secondaryAudio;
+    let switchTargetIndex = null;
+
+    const fadeTimers = new WeakMap();
+    const readyHandlers = new WeakMap();
+    const audioTrackIndex = new WeakMap();
 
     function isInternalNavigationPending() {
       try {
@@ -119,15 +130,25 @@ const showTrackNav = bm.tracks.length > 1;
       return Math.max(0, Math.min(100, Number(volInput?.value) || DEFAULT_VOLUME)) / 100;
     }
 
-    function getCurrentVolume() {
-      return Math.max(0, Math.min(1, Number(audio.volume) || 0));
+    function getCurrentVolume(audioEl) {
+      return Math.max(0, Math.min(1, Number(audioEl?.volume) || 0));
     }
 
-    function clearFade() {
-      if (fadeTimer) {
-        window.clearInterval(fadeTimer);
-        fadeTimer = null;
+    function isAudioPlaying(audioEl) {
+      return !!audioEl && !audioEl.paused && !audioEl.ended;
+    }
+
+    function clearFade(audioEl) {
+      const timer = fadeTimers.get(audioEl);
+      if (timer) {
+        window.clearInterval(timer);
+        fadeTimers.delete(audioEl);
       }
+    }
+
+    function clearAllFades() {
+      clearFade(primaryAudio);
+      clearFade(secondaryAudio);
     }
 
     function clearBlurPauseTimer() {
@@ -137,28 +158,46 @@ const showTrackNav = bm.tracks.length > 1;
       }
     }
 
+    function clearPreloadTimer() {
+      if (preloadTimer) {
+        window.clearTimeout(preloadTimer);
+        preloadTimer = null;
+      }
+    }
+
     function shouldPauseForBlur() {
       if (document.hidden || isInternalNavigationPending()) return false;
       if (typeof document.hasFocus === 'function' && document.hasFocus()) return false;
       return true;
     }
 
-    function fadeVolumeTo(target, duration, onDone) {
-      if (!audio) {
+    function pauseElement(audioEl) {
+      clearFade(audioEl);
+
+      try {
+        audioEl.volume = 0;
+        audioEl.pause();
+      } catch {
+        /* ignore */
+      }
+    }
+
+    function fadeVolumeTo(audioEl, target, duration, onDone) {
+      if (!audioEl) {
         onDone?.();
         return;
       }
 
-      clearFade();
+      clearFade(audioEl);
 
       const safeTarget = Math.max(0, Math.min(1, target));
-      const from = getCurrentVolume();
+      const from = getCurrentVolume(audioEl);
       const delta = safeTarget - from;
 
       if (Math.abs(delta) < 0.01) {
         try {
-          if (safeTarget > 0) audio.muted = false;
-          audio.volume = safeTarget;
+          if (safeTarget > 0) audioEl.muted = false;
+          audioEl.volume = safeTarget;
         } catch {
           /* ignore */
         }
@@ -168,30 +207,32 @@ const showTrackNav = bm.tracks.length > 1;
 
       const startedAt = Date.now();
 
-      fadeTimer = window.setInterval(function () {
+      const timer = window.setInterval(function () {
         const progress = Math.min(1, (Date.now() - startedAt) / duration);
         const next = from + delta * progress;
 
         try {
-          if (safeTarget > 0) audio.muted = false;
-          audio.volume = Math.max(0, Math.min(1, next));
+          if (safeTarget > 0) audioEl.muted = false;
+          audioEl.volume = Math.max(0, Math.min(1, next));
         } catch {
-          clearFade();
+          clearFade(audioEl);
           onDone?.();
           return;
         }
 
         if (progress >= 1) {
-          clearFade();
+          clearFade(audioEl);
           try {
-            if (safeTarget > 0) audio.muted = false;
-            audio.volume = safeTarget;
+            if (safeTarget > 0) audioEl.muted = false;
+            audioEl.volume = safeTarget;
           } catch {
             /* ignore */
           }
           onDone?.();
         }
       }, FADE_TICK_MS);
+
+      fadeTimers.set(audioEl, timer);
     }
 
     function readStore() {
@@ -206,9 +247,10 @@ const showTrackNav = bm.tracks.length > 1;
 
     function writeStore(overrides) {
       try {
+        const storeAudio = switchTargetIndex !== null && isAudioPlaying(inactiveAudio) ? inactiveAudio : activeAudio;
         const payload = {
-          index,
-          t: Math.max(0, audio.currentTime || 0),
+          index: switchTargetIndex ?? index,
+          t: Math.max(0, storeAudio.currentTime || 0),
           intent: userPaused ? 'pause' : 'play',
           vol: volInput ? Number(volInput.value) || DEFAULT_VOLUME : DEFAULT_VOLUME,
           at: Date.now(),
@@ -220,8 +262,8 @@ const showTrackNav = bm.tracks.length > 1;
       }
     }
 
-    function setTitle() {
-      if (titleEl && tracks[index]) titleEl.textContent = tracks[index].title;
+    function setTitle(trackIndex = index) {
+      if (titleEl && tracks[trackIndex]) titleEl.textContent = tracks[trackIndex].title;
     }
 
     function syncPlayUi(playing) {
@@ -232,40 +274,125 @@ const showTrackNav = bm.tracks.length > 1;
       iconPause?.classList.toggle('hidden', !playing);
     }
 
-    function loadTrack(nextIndex, startTime = 0) {
-      if (!tracks[nextIndex]) return;
+    function clearReadyHandler(audioEl) {
+      const handler = readyHandlers.get(audioEl);
+      if (!handler) return;
+      audioEl.removeEventListener('loadedmetadata', handler);
+      audioEl.removeEventListener('canplay', handler);
+      readyHandlers.delete(audioEl);
+    }
 
-      index = nextIndex;
-      audio.src = tracks[index].src;
-      audio.loop = tracks.length <= 1;
-      audio.load();
-      setTitle();
+    function loadTrack(audioEl, nextIndex, startTime = 0) {
+      const track = tracks[nextIndex];
+      if (!track) return;
+
+      clearReadyHandler(audioEl);
+      audioTrackIndex.set(audioEl, nextIndex);
+      audioEl.loop = true;
+
+      if (audioEl.getAttribute('src') !== track.src) {
+        audioEl.src = track.src;
+        audioEl.load();
+      }
 
       if (startTime > 0) {
         const applyStartTime = () => {
           try {
-            audio.currentTime = startTime;
+            audioEl.currentTime = startTime;
           } catch {
             /* ignore */
           }
-          audio.removeEventListener('loadedmetadata', applyStartTime);
+          clearReadyHandler(audioEl);
         };
 
-        audio.addEventListener('loadedmetadata', applyStartTime);
+        if (audioEl.readyState >= 1) {
+          applyStartTime();
+        } else {
+          readyHandlers.set(audioEl, applyStartTime);
+          audioEl.addEventListener('loadedmetadata', applyStartTime);
+        }
+      } else {
+        try {
+          audioEl.currentTime = 0;
+        } catch {
+          /* ignore */
+        }
+      }
+
+      try {
+        audioEl.muted = false;
+        audioEl.volume = 0;
+      } catch {
+        /* ignore */
       }
     }
 
-    function playWithFade(useMutedAutoplay = false) {
-      clearFade();
+    function ensureAudioReady(audioEl, onReady) {
+      if (audioEl.readyState >= 2) {
+        onReady();
+        return;
+      }
+
+      const handleReady = () => {
+        clearReadyHandler(audioEl);
+        onReady();
+      };
+
+      clearReadyHandler(audioEl);
+      readyHandlers.set(audioEl, handleReady);
+      audioEl.addEventListener('canplay', handleReady);
+    }
+
+    function preloadNextTrack() {
+      if (tracks.length <= 1) return;
+
+      clearPreloadTimer();
+      preloadTimer = window.setTimeout(function () {
+        preloadTimer = null;
+
+        if (switchTargetIndex !== null) return;
+
+        const nextIndex = (index + 1) % tracks.length;
+        if (audioTrackIndex.get(inactiveAudio) === nextIndex) return;
+
+        pauseElement(inactiveAudio);
+        loadTrack(inactiveAudio, nextIndex);
+      }, PRELOAD_DELAY_MS);
+    }
+
+    function finalizeSwitch(nextIndex, incomingAudio, outgoingAudio) {
+      pauseElement(outgoingAudio);
+      activeAudio = incomingAudio;
+      inactiveAudio = outgoingAudio;
+      index = nextIndex;
+      switchTargetIndex = null;
 
       try {
-        audio.muted = useMutedAutoplay;
-        audio.volume = 0;
+        activeAudio.volume = getTargetVolume();
+        activeAudio.muted = false;
       } catch {
         /* ignore */
       }
 
-      const playPromise = audio.play();
+      setTitle(index);
+      syncPlayUi(isAudioPlaying(activeAudio));
+      preloadNextTrack();
+      writeStore({ index, t: Math.max(0, activeAudio.currentTime || 0), intent: userPaused ? 'pause' : 'play' });
+    }
+
+    function playWithFade(useMutedAutoplay = false) {
+      clearAllFades();
+      clearPreloadTimer();
+      switchTargetIndex = null;
+
+      try {
+        activeAudio.muted = useMutedAutoplay;
+        activeAudio.volume = 0;
+      } catch {
+        /* ignore */
+      }
+
+      const playPromise = activeAudio.play();
 
       syncPlayUi(true);
 
@@ -274,12 +401,13 @@ const showTrackNav = bm.tracks.length > 1;
         resumeAfterReturn = false;
         if (!useMutedAutoplay) {
           try {
-            audio.muted = false;
+            activeAudio.muted = false;
           } catch {
             /* ignore */
           }
         }
-        fadeVolumeTo(getTargetVolume(), FADE_IN_MS);
+        fadeVolumeTo(activeAudio, getTargetVolume(), FADE_IN_MS);
+        preloadNextTrack();
       };
 
       if (playPromise && typeof playPromise.then === 'function') {
@@ -299,12 +427,79 @@ const showTrackNav = bm.tracks.length > 1;
       playWithFade(true);
     }
 
+    function switchTrack(nextIndex) {
+      if (!tracks[nextIndex]) return;
+
+      clearAllFades();
+      clearBlurPauseTimer();
+      clearPreloadTimer();
+
+      const wasPlaying = isAudioPlaying(activeAudio);
+      switchTargetIndex = nextIndex;
+
+      if (!wasPlaying) {
+        pauseElement(inactiveAudio);
+        loadTrack(activeAudio, nextIndex);
+        index = nextIndex;
+        switchTargetIndex = null;
+        userPaused = false;
+        setTitle(index);
+        syncPlayUi(false);
+        preloadNextTrack();
+        writeStore({ index, t: 0, intent: 'pause' });
+        return;
+      }
+
+      const outgoingAudio = activeAudio;
+      const incomingAudio = inactiveAudio;
+
+      pauseElement(incomingAudio);
+      loadTrack(incomingAudio, nextIndex);
+
+      ensureAudioReady(incomingAudio, function () {
+        if (switchTargetIndex !== nextIndex) return;
+
+        try {
+          incomingAudio.muted = false;
+          incomingAudio.volume = 0;
+        } catch {
+          /* ignore */
+        }
+
+        const playPromise = incomingAudio.play();
+
+        const handleStarted = () => {
+          autoplayBlocked = false;
+          resumeAfterReturn = false;
+          setTitle(nextIndex);
+          syncPlayUi(true);
+          fadeVolumeTo(incomingAudio, getTargetVolume(), SWITCH_FADE_MS);
+          fadeVolumeTo(outgoingAudio, 0, SWITCH_FADE_MS, function () {
+            if (switchTargetIndex !== nextIndex) return;
+            finalizeSwitch(nextIndex, incomingAudio, outgoingAudio);
+          });
+        };
+
+        if (playPromise && typeof playPromise.then === 'function') {
+          playPromise.then(handleStarted).catch(() => {
+            switchTargetIndex = null;
+            pauseElement(incomingAudio);
+            autoplayBlocked = true;
+            syncPlayUi(isAudioPlaying(outgoingAudio));
+          });
+          return;
+        }
+
+        handleStarted();
+      });
+    }
+
     function pauseForReturn() {
-      if (!audio) return;
+      if (!activeAudio) return;
 
       clearBlurPauseTimer();
 
-      const wasPlaying = !audio.paused;
+      const wasPlaying = isAudioPlaying(activeAudio) || isAudioPlaying(inactiveAudio);
       if (wasPlaying && !userPaused) {
         resumeAfterReturn = true;
       }
@@ -315,29 +510,26 @@ const showTrackNav = bm.tracks.length > 1;
 
     function resumeFromReturn() {
       clearBlurPauseTimer();
-      if (document.hidden || !resumeAfterReturn || userPaused || !audio.paused) return;
+      if (document.hidden || !resumeAfterReturn || userPaused || isAudioPlaying(activeAudio) || isAudioPlaying(inactiveAudio)) return;
       if (typeof document.hasFocus === 'function' && !document.hasFocus()) return;
       playWithFade(true);
       writeStore({ intent: 'play' });
     }
 
     function pauseImmediatelyOnLeave() {
-      if (!audio) return;
+      if (!activeAudio) return;
 
       clearBlurPauseTimer();
-      clearFade();
+      clearPreloadTimer();
+      clearAllFades();
       syncPlayUi(false);
-
-      try {
-        audio.volume = 0;
-        audio.pause();
-      } catch {
-        /* ignore */
-      }
+      pauseElement(primaryAudio);
+      pauseElement(secondaryAudio);
+      switchTargetIndex = null;
     }
 
     function pauseWithFade(markUserPaused) {
-      if (!audio) return;
+      if (!activeAudio) return;
 
       if (markUserPaused) {
         userPaused = true;
@@ -345,88 +537,101 @@ const showTrackNav = bm.tracks.length > 1;
       }
 
       syncPlayUi(false);
+      clearPreloadTimer();
 
-      fadeVolumeTo(0, FADE_OUT_MS, function () {
-        try {
-          audio.pause();
-        } catch {
-          /* ignore */
-        }
-      });
+      const playingPrimary = isAudioPlaying(primaryAudio);
+      const playingSecondary = isAudioPlaying(secondaryAudio);
+
+      switchTargetIndex = null;
+
+      if (!playingPrimary && !playingSecondary) {
+        pauseElement(primaryAudio);
+        pauseElement(secondaryAudio);
+        return;
+      }
+
+      if (playingPrimary) {
+        fadeVolumeTo(primaryAudio, 0, FADE_OUT_MS, function () {
+          pauseElement(primaryAudio);
+        });
+      }
+
+      if (playingSecondary) {
+        fadeVolumeTo(secondaryAudio, 0, FADE_OUT_MS, function () {
+          pauseElement(secondaryAudio);
+        });
+      }
     }
 
     function go(delta) {
-      const wasActive = !audio.paused;
-
-      const startNextTrack = () => {
-        loadTrack((index + delta + tracks.length) % tracks.length);
-        userPaused = false;
-
-        if (wasActive) {
-          window.setTimeout(function () {
-            playWithFade(false);
-          }, 220);
-        } else {
-          syncPlayUi(false);
-        }
-
-        writeStore();
-      };
-
-      if (wasActive) {
-        pauseWithFade(false);
-        window.setTimeout(startNextTrack, FADE_OUT_MS + 30);
-        return;
-      }
-
-      startNextTrack();
+      switchTrack((index + delta + tracks.length) % tracks.length);
     }
 
-    audio.addEventListener('play', function () {
+    function handleAnyPlay() {
       syncPlayUi(true);
       autoplayBlocked = false;
-      resumeAfterReturn = false;
-    });
+    }
 
-    audio.addEventListener('pause', function () {
+    function handleAnyPause() {
+      if (isAudioPlaying(primaryAudio) || isAudioPlaying(secondaryAudio)) return;
       syncPlayUi(false);
-    });
+    }
 
-    audio.addEventListener('ended', function () {
-      if (tracks.length <= 1) {
-        userPaused = false;
-        window.setTimeout(function () {
-          startAutoplayFlow();
-        }, 120);
-        writeStore();
-        return;
+    function handleEnded(audioEl) {
+      if (audioEl !== activeAudio || activeAudio.loop) return;
+
+      try {
+        activeAudio.currentTime = 0;
+      } catch {
+        /* ignore */
       }
-      go(1);
-    });
 
-    audio.addEventListener('error', function () {
+      if (!userPaused) {
+        playWithFade(false);
+      }
+    }
+
+    function handleError(audioEl) {
+      if (audioEl !== activeAudio && audioEl !== inactiveAudio) return;
       autoplayBlocked = true;
-      syncPlayUi(false);
-    });
+      if (!isAudioPlaying(primaryAudio) && !isAudioPlaying(secondaryAudio)) {
+        syncPlayUi(false);
+      }
+    }
 
     function initPlayer() {
       const saved = readStore();
       if (volInput) {
-        volInput.value = String(DEFAULT_VOLUME);
+        volInput.value = String(saved && typeof saved.vol === 'number' ? Math.max(0, Math.min(100, saved.vol)) : DEFAULT_VOLUME);
       }
-      audio.volume = getTargetVolume();
 
       const startT = saved && typeof saved.t === 'number' ? Math.max(0, saved.t) : 0;
       index = saved && typeof saved.index === 'number'
         ? Math.max(0, Math.min(saved.index, tracks.length - 1))
         : 0;
 
-      loadTrack(index, startT > 0.5 ? startT : 0);
+      loadTrack(activeAudio, index, startT > 0.5 ? startT : 0);
+      pauseElement(inactiveAudio);
 
-      userPaused = false;
+      userPaused = saved?.intent === 'pause';
       resumeAfterReturn = false;
       setControlsEnabled(true);
-      startAutoplayFlow();
+      setTitle(index);
+
+      try {
+        activeAudio.volume = getTargetVolume();
+      } catch {
+        /* ignore */
+      }
+
+      preloadNextTrack();
+
+      if (!userPaused) {
+        startAutoplayFlow();
+      } else {
+        syncPlayUi(false);
+      }
+
       writeStore();
     }
 
@@ -434,8 +639,8 @@ const showTrackNav = bm.tracks.length > 1;
     nextBtn?.addEventListener('click', () => go(1));
 
     toggleBtn?.addEventListener('click', () => {
-      if (!audio) return;
-      if (!audio.paused) {
+      if (!activeAudio) return;
+      if (isAudioPlaying(primaryAudio) || isAudioPlaying(secondaryAudio)) {
         pauseWithFade(true);
         writeStore();
       } else {
@@ -446,14 +651,46 @@ const showTrackNav = bm.tracks.length > 1;
     });
 
     volInput?.addEventListener('input', () => {
-      audio.volume = getTargetVolume();
+      const volume = getTargetVolume();
+
+      try {
+        activeAudio.volume = volume;
+      } catch {
+        /* ignore */
+      }
+
+      if (switchTargetIndex !== null && isAudioPlaying(inactiveAudio)) {
+        try {
+          inactiveAudio.volume = Math.min(volume, getCurrentVolume(inactiveAudio));
+        } catch {
+          /* ignore */
+        }
+      }
+
       writeStore();
+    });
+
+    primaryAudio.addEventListener('play', handleAnyPlay);
+    secondaryAudio.addEventListener('play', handleAnyPlay);
+    primaryAudio.addEventListener('pause', handleAnyPause);
+    secondaryAudio.addEventListener('pause', handleAnyPause);
+    primaryAudio.addEventListener('ended', function () {
+      handleEnded(primaryAudio);
+    });
+    secondaryAudio.addEventListener('ended', function () {
+      handleEnded(secondaryAudio);
+    });
+    primaryAudio.addEventListener('error', function () {
+      handleError(primaryAudio);
+    });
+    secondaryAudio.addEventListener('error', function () {
+      handleError(secondaryAudio);
     });
 
     document.addEventListener(
       'pointerdown',
       function onceTryPlay() {
-        if (autoplayBlocked && !userPaused && audio.paused) {
+        if (autoplayBlocked && !userPaused && !isAudioPlaying(primaryAudio) && !isAudioPlaying(secondaryAudio)) {
           playWithFade(false);
         }
       },
@@ -503,7 +740,7 @@ const showTrackNav = bm.tracks.length > 1;
     });
 
     saveTimer = window.setInterval(function () {
-      if (!audio || audio.paused) return;
+      if (!isAudioPlaying(primaryAudio) && !isAudioPlaying(secondaryAudio)) return;
       writeStore();
     }, 3000);
 
