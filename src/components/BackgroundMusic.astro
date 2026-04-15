@@ -82,11 +82,13 @@ const showTrackNav = bm.tracks.length > 1;
     const FADE_IN_MS = 1400;
     const FADE_OUT_MS = 450;
     const FADE_TICK_MS = 50;
+    const BLUR_PAUSE_DELAY_MS = 180;
 
     let index = 0;
     let userPaused = false;
     let saveTimer = null;
     let fadeTimer = null;
+    let blurPauseTimer = null;
     let autoplayBlocked = false;
     let resumeAfterReturn = false;
 
@@ -118,6 +120,19 @@ const showTrackNav = bm.tracks.length > 1;
         window.clearInterval(fadeTimer);
         fadeTimer = null;
       }
+    }
+
+    function clearBlurPauseTimer() {
+      if (blurPauseTimer) {
+        window.clearTimeout(blurPauseTimer);
+        blurPauseTimer = null;
+      }
+    }
+
+    function shouldPauseForBlur() {
+      if (document.hidden || isInternalNavigationPending()) return false;
+      if (typeof document.hasFocus === 'function' && document.hasFocus()) return false;
+      return true;
     }
 
     function fadeVolumeTo(target, duration, onDone) {
@@ -279,6 +294,8 @@ const showTrackNav = bm.tracks.length > 1;
     function pauseForReturn() {
       if (!audio) return;
 
+      clearBlurPauseTimer();
+
       const wasPlaying = !audio.paused;
       if (wasPlaying && !userPaused) {
         resumeAfterReturn = true;
@@ -289,7 +306,9 @@ const showTrackNav = bm.tracks.length > 1;
     }
 
     function resumeFromReturn() {
-      if (!resumeAfterReturn || userPaused || !audio.paused) return;
+      clearBlurPauseTimer();
+      if (document.hidden || !resumeAfterReturn || userPaused || !audio.paused) return;
+      if (typeof document.hasFocus === 'function' && !document.hasFocus()) return;
       playWithFade(true);
       writeStore({ intent: 'play' });
     }
@@ -297,6 +316,7 @@ const showTrackNav = bm.tracks.length > 1;
     function pauseImmediatelyOnLeave() {
       if (!audio) return;
 
+      clearBlurPauseTimer();
       clearFade();
       syncPlayUi(false);
 
@@ -433,6 +453,8 @@ const showTrackNav = bm.tracks.length > 1;
     );
 
     document.addEventListener('visibilitychange', function () {
+      clearBlurPauseTimer();
+
       if (document.hidden) {
         if (isInternalNavigationPending()) return;
         pauseForReturn();
@@ -444,6 +466,16 @@ const showTrackNav = bm.tracks.length > 1;
 
     window.addEventListener('focus', function () {
       resumeFromReturn();
+    });
+
+    window.addEventListener('blur', function () {
+      clearBlurPauseTimer();
+
+      blurPauseTimer = window.setTimeout(function () {
+        blurPauseTimer = null;
+        if (!shouldPauseForBlur()) return;
+        pauseForReturn();
+      }, BLUR_PAUSE_DELAY_MS);
     });
 
     window.addEventListener('pagehide', function () {
