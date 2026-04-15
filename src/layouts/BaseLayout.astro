@@ -108,13 +108,29 @@ const versionUrl = withBase('/version.json');
       (function () {
         const navKey = 'allen.site.internalNav';
         const sessionKey = 'allen.site.sessionEntered';
+        const navMarkerTtlMs = 2500;
         let shouldAnimate = true;
+
+        const hasFreshInternalNavMarker = () => {
+          try {
+            const raw = sessionStorage.getItem(navKey);
+            const timestamp = Number(raw);
+            if (!Number.isFinite(timestamp)) return false;
+            if (Date.now() - timestamp > navMarkerTtlMs) {
+              sessionStorage.removeItem(navKey);
+              return false;
+            }
+            return true;
+          } catch {
+            return false;
+          }
+        };
 
         try {
           const rawReferrer = document.referrer;
           const referrer = rawReferrer ? new URL(rawReferrer, window.location.href) : null;
           const isSameOriginReferrer = !!referrer && referrer.origin === window.location.origin;
-          const hasInternalNavMarker = sessionStorage.getItem(navKey) === '1';
+          const hasInternalNavMarker = hasFreshInternalNavMarker();
           const hasEnteredThisSession = sessionStorage.getItem(sessionKey) === '1';
 
           shouldAnimate = !(hasInternalNavMarker || isSameOriginReferrer || hasEnteredThisSession);
@@ -162,14 +178,37 @@ const versionUrl = withBase('/version.json');
 
         const doc = document.documentElement;
         const navKey = 'allen.site.internalNav';
+        const navMarkerTtlMs = 2500;
         const shouldAnimate = window.__allenEntryLoaderShouldAnimate === true;
 
-        const markInternalNavigation = () => {
+        const clearInternalNavigation = () => {
           try {
-            sessionStorage.setItem(navKey, '1');
+            sessionStorage.removeItem(navKey);
           } catch {
             /* empty */
           }
+        };
+
+        const scheduleInternalNavigationClear = () => {
+          const existingTimer = window.__allenInternalNavClearTimer;
+          if (typeof existingTimer === 'number') {
+            window.clearTimeout(existingTimer);
+          }
+
+          window.__allenInternalNavClearTimer = window.setTimeout(() => {
+            clearInternalNavigation();
+            window.__allenInternalNavClearTimer = null;
+          }, navMarkerTtlMs);
+        };
+
+        const markInternalNavigation = () => {
+          try {
+            sessionStorage.setItem(navKey, String(Date.now()));
+          } catch {
+            /* empty */
+          }
+
+          scheduleInternalNavigationClear();
         };
 
         const handleInternalNavigationIntent = (event) => {
@@ -200,6 +239,10 @@ const versionUrl = withBase('/version.json');
 
         document.addEventListener('pointerdown', handleInternalNavigationIntent, { capture: true });
         document.addEventListener('click', handleInternalNavigationIntent, { capture: true });
+        document.addEventListener('astro:after-swap', clearInternalNavigation);
+        document.addEventListener('astro:page-load', clearInternalNavigation);
+        window.addEventListener('pageshow', clearInternalNavigation);
+        scheduleInternalNavigationClear();
 
         if (!shouldAnimate) {
           doc.classList.remove('site-entry-pending');
