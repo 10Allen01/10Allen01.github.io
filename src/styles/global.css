@@ -43,6 +43,11 @@ html.site-entry-pending body {
   overflow: hidden;
 }
 
+html.site-entry-pending .visit-shield-wrap,
+html.site-entry-pending .visit-shield {
+  display: none !important;
+}
+
 html.site-entry-pending .site-header,
 html.site-entry-pending .page-main,
 html.site-entry-pending .site-footer,

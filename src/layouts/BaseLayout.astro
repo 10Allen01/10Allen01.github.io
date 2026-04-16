@@ -249,6 +249,8 @@ const versionUrl = withBase('/version.json');
             return;
           }
 
+          const entryPending = document.documentElement.classList.contains('site-entry-pending');
+
           const setVisible = (visible) => {
             wrap.hidden = !visible;
             shield.hidden = !visible;
@@ -262,7 +264,7 @@ const versionUrl = withBase('/version.json');
 
           setVisible(false);
 
-          if (window.__allenEntryLoaderDone === true || window.__allenEntryLoaderShouldAnimate !== true) {
+          if (!entryPending && (window.__allenEntryLoaderDone === true || window.__allenEntryLoaderShouldAnimate !== true)) {
             revealWhenReady();
           } else if (shield.dataset.waitingForEntry !== '1') {
             shield.dataset.waitingForEntry = '1';
