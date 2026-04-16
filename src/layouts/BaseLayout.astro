@@ -172,12 +172,12 @@ const versionUrl = withBase('/version.json');
         <p class="site-operator-banner__text">This website is a publication only. Nothing published here grants authorization, operational approval, facilitation, endorsement, or instruction for unauthorized or unlawful conduct, and no downstream third-party misuse is attributable to the website operator.</p>
       </div>
     </section>
-    <section id="visit-shield-wrap" class="visit-shield-wrap" aria-label="First-visit acknowledgment">
-      <div id="visit-shield" class="shell visit-shield" role="dialog" aria-labelledby="visit-shield-title" aria-live="polite" aria-modal="true">
+    <section id="visit-shield-wrap" class="visit-shield-wrap" aria-label="First-visit acknowledgment" hidden>
+      <div id="visit-shield" class="shell visit-shield" role="dialog" aria-labelledby="visit-shield-title" aria-live="polite" aria-modal="true" hidden>
         <div class="visit-shield__copy">
           <span class="visit-shield__label">First-Visit Acknowledgment</span>
-          <h2 id="visit-shield-title" class="title-2">Acknowledgment required: this website is an informational publication for lawful study, documentation, research, and authorized testing contexts only.</h2>
-          <p class="visit-shield__text">By continuing, you acknowledge that nothing published here creates permission, operational support, approval, facilitation, partnership, or reliance rights for unlawful or unauthorized activity. Any later misuse, redistribution, automation, or illegal deployment by any third party is independent of this website and is not legally attributable to the website operator.</p>
+          <h2 id="visit-shield-title" class="title-2">Acknowledgment required: publication only, no authorization created.</h2>
+          <p class="visit-shield__text">Nothing published here grants authorization, facilitation, endorsement, operational approval, or reliance rights. Any later third-party misuse or illegal deployment remains independent of this website and is not legally attributable to the operator.</p>
         </div>
         <button class="btn btn-primary visit-shield__button" id="visit-shield-dismiss" type="button">I understand</button>
       </div>
@@ -209,6 +209,7 @@ const versionUrl = withBase('/version.json');
     <script is:inline>
       (function () {
         const storageKey = 'allen.site.visitShieldAccepted';
+        const readyEventName = 'allen:entry-ready';
 
         const readAcceptedState = () => {
           try {
@@ -255,7 +256,18 @@ const versionUrl = withBase('/version.json');
             document.body.classList.toggle('visit-shield-open', visible);
           };
 
-          setVisible(!readAcceptedState());
+          const revealWhenReady = () => {
+            setVisible(!readAcceptedState());
+          };
+
+          setVisible(false);
+
+          if (window.__allenEntryLoaderDone === true || window.__allenEntryLoaderShouldAnimate !== true) {
+            revealWhenReady();
+          } else if (shield.dataset.waitingForEntry !== '1') {
+            shield.dataset.waitingForEntry = '1';
+            document.addEventListener(readyEventName, revealWhenReady, { once: true });
+          }
 
           if (dismissButton.dataset.bound === '1') {
             return;
@@ -352,9 +364,11 @@ const versionUrl = withBase('/version.json');
         scheduleInternalNavigationClear();
 
         if (!shouldAnimate) {
+          window.__allenEntryLoaderDone = true;
           doc.classList.remove('site-entry-pending');
           doc.classList.add('site-entry-skip');
           root.setAttribute('hidden', '');
+          document.dispatchEvent(new CustomEvent('allen:entry-ready'));
           return;
         }
 
@@ -363,9 +377,11 @@ const versionUrl = withBase('/version.json');
         const finish = () => {
           if (finished) return;
           finished = true;
+          window.__allenEntryLoaderDone = true;
           root.classList.add('is-exit');
           doc.classList.remove('site-entry-pending');
           doc.classList.add('site-entry-done');
+          document.dispatchEvent(new CustomEvent('allen:entry-ready'));
 
           window.setTimeout(() => {
             root.setAttribute('hidden', '');

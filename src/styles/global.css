@@ -523,6 +523,12 @@ img { display: block; max-width: 100%; height: auto; }
   gap: 10px;
 }
 
+.visit-shield .title-2 {
+  margin: 0;
+  font-size: 1.55rem;
+  line-height: 1.2;
+}
+
 .visit-shield__label {
   display: inline-flex;
   width: fit-content;
@@ -999,6 +1005,11 @@ body.visit-shield-open {
 
   .visit-shield__copy {
     gap: 8px;
+  }
+
+  .visit-shield .title-2 {
+    font-size: 1.08rem;
+    line-height: 1.28;
   }
 
   .visit-shield__text {
