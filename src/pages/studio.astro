@@ -176,6 +176,33 @@ src/content/posts/your-slug.md
 public/images/posts/your-slug/...</pre>
             </article>
 
+            <article class="preview-card">
+              <span class="eyebrow">Delete post</span>
+              <p style="margin-top: 16px; color: var(--text-2); line-height: 1.6;">Load the current post list from the configured repository, inspect the files that will be removed, then type the slug to confirm deletion.</p>
+              <div style="display: flex; align-items: center; gap: 12px; margin-top: 20px; flex-wrap: wrap;">
+                <button class="btn btn-outline" id="load-posts" type="button">Load posts</button>
+                <span class="tag" id="existing-post-count">No posts loaded</span>
+              </div>
+
+              <label class="field" style="max-width: 100%; margin-top: 20px;">
+                <span>Existing post</span>
+                <select id="existing-posts" style="width:100%; border: 1px solid var(--border); padding: 12px; border-radius: 4px;" disabled>
+                  <option value="">Select a post…</option>
+                </select>
+              </label>
+
+              <div id="delete-summary" style="margin-top: 20px; padding: 16px; border: 1px solid var(--border); border-radius: 4px; background: var(--surface-1); color: var(--text-2); line-height: 1.6;">
+                Load posts to manage deletions.
+              </div>
+
+              <label class="field" style="max-width: 100%; margin-top: 20px;">
+                <span>Type the slug to confirm deletion</span>
+                <input id="delete-confirm-slug" type="text" placeholder="post-slug" style="width:100%; border: 1px solid var(--border); padding: 12px; border-radius: 4px;" disabled />
+              </label>
+
+              <button class="btn btn-outline" id="delete-post" type="button" style="margin-top: 20px;" disabled>Delete selected post</button>
+            </article>
+
             <article class="preview-card studio-status" id="studio-status" aria-live="polite">
               <h2 class="title-2" style="font-size: 1.25rem;">Status</h2>
               <p style="margin-top: 12px; color: var(--text-2);">Ready to publish.</p>

@@ -17,6 +17,37 @@ type RepoFile = {
   encoding: 'utf-8' | 'base64';
 };
 
+type ExistingStudioPost = {
+  slug: string;
+  title: string;
+  excerpt: string;
+  publishedAt: string;
+  section: string;
+  draft: boolean;
+  featured: boolean;
+  markdownPath: string;
+  localAssetPaths: string[];
+};
+
+type DeletePlan = {
+  slug: string;
+  markdownPath: string;
+  autoDeletePaths: string[];
+  folderAssetPaths: string[];
+  linkedUniqueAssetPaths: string[];
+  sharedLinkedAssetPaths: string[];
+  missingLinkedAssetPaths: string[];
+};
+
+type GithubContentItem = {
+  type: 'file' | 'dir';
+  name: string;
+  path: string;
+  sha: string;
+  content?: string;
+  encoding?: string;
+};
+
 type PublishImageEntry = {
   src: string;
   alt: string;
@@ -29,6 +60,9 @@ const SECTION_LABELS: Record<string, string> = {
   daily: 'Daily',
   tools: 'Tools'
 };
+
+const VALID_SECTION_KEYS = new Set(Object.keys(SECTION_LABELS));
+const IMAGE_PATH_RE = /\.(avif|bmp|gif|ico|jpe?g|png|svg|tiff|webp)$/i;
 
 const STORAGE_KEYS = {
   owner: 'allen.studio.repo.owner',
@@ -70,6 +104,158 @@ const toBase64 = async (file: File) => {
 };
 
 const encodePathSegments = (value: string) => value.split('/').map((segment) => encodeURIComponent(segment)).join('/');
+
+const decodeBase64 = (value: string) => atob(value.replace(/\s+/g, ''));
+
+const stripYamlValue = (value: string) => {
+  const trimmed = value.trim();
+
+  if (!trimmed) {
+    return '';
+  }
+
+  try {
+    const parsed = JSON.parse(trimmed) as unknown;
+
+    if (typeof parsed === 'string') {
+      return parsed;
+    }
+
+    if (typeof parsed === 'number' || typeof parsed === 'boolean') {
+      return String(parsed);
+    }
+
+    return trimmed;
+  } catch {
+    return trimmed.replace(/^['"]|['"]$/g, '');
+  }
+};
+
+const readFrontmatterValue = (frontmatter: string, key: string) => {
+  const match = frontmatter.match(new RegExp(`^${key}:\\s*(.+)$`, 'm'));
+  return match ? stripYamlValue(match[1]) : '';
+};
+
+const readFrontmatterBoolean = (frontmatter: string, key: string) => {
+  const value = readFrontmatterValue(frontmatter, key).toLowerCase();
+  return value === 'true';
+};
+
+const dedupeStrings = (values: string[]) => {
+  return Array.from(new Set(values.filter(Boolean))).sort((left, right) => left.localeCompare(right));
+};
+
+const normalizeLocalAssetPath = (value: string) => {
+  const trimmed = value.trim();
+  if (!trimmed) {
+    return '';
+  }
+
+  const unquoted = trimmed.replace(/^['"]|['"]$/g, '');
+  const unwrapped = unquoted.startsWith('<') && unquoted.endsWith('>') ? unquoted.slice(1, -1) : unquoted;
+  const cleaned = unwrapped.split('#')[0]?.split('?')[0]?.trim() || '';
+
+  if (!cleaned || /^(https?:|data:|mailto:|tel:)/i.test(cleaned)) {
+    return '';
+  }
+
+  let repoPath = '';
+
+  if (cleaned.startsWith('public/')) {
+    repoPath = cleaned;
+  } else if (cleaned.startsWith('/')) {
+    repoPath = `public${cleaned}`;
+  } else if (cleaned.startsWith('images/')) {
+    repoPath = `public/${cleaned}`;
+  }
+
+  return IMAGE_PATH_RE.test(repoPath) ? repoPath : '';
+};
+
+const readFrontmatterImagePaths = (frontmatter: string) => {
+  const lines = frontmatter.split(/\r?\n/);
+  const paths: string[] = [];
+  let inImagesBlock = false;
+
+  for (const line of lines) {
+    if (!inImagesBlock) {
+      if (/^images:\s*(?:\[\])?\s*$/.test(line)) {
+        inImagesBlock = /^images:\s*$/.test(line);
+      }
+      continue;
+    }
+
+    if (/^[^\s]/.test(line)) {
+      break;
+    }
+
+    const match = line.match(/^\s*[-]?\s*src:\s*(.+)$/);
+    if (match?.[1]) {
+      paths.push(match[1]);
+    }
+  }
+
+  return paths;
+};
+
+const readMarkdownImagePaths = (markdownBody: string) => {
+  const paths: string[] = [];
+  const markdownImageRegex = /!\[[^\]]*\]\(([^)]+)\)/g;
+  const htmlImageRegex = /<img[^>]+src=["']([^"']+)["'][^>]*>/gi;
+  let match: RegExpExecArray | null;
+
+  while ((match = markdownImageRegex.exec(markdownBody)) !== null) {
+    paths.push(match[1]);
+  }
+
+  while ((match = htmlImageRegex.exec(markdownBody)) !== null) {
+    paths.push(match[1]);
+  }
+
+  return paths;
+};
+
+const parseStoredPostMarkdown = (path: string, markdown: string): ExistingStudioPost | null => {
+  const slug = path.split('/').pop()?.replace(/\.md$/i, '') || 'untitled-post';
+  const frontmatterMatch = markdown.match(/^---\r?\n([\s\S]*?)\r?\n---/);
+  if (!frontmatterMatch) {
+    return null;
+  }
+
+  const frontmatter = frontmatterMatch[1] ?? '';
+  const title = readFrontmatterValue(frontmatter, 'title').trim();
+  const excerpt = readFrontmatterValue(frontmatter, 'excerpt');
+  const publishedAt = readFrontmatterValue(frontmatter, 'publishedAt').trim();
+  const section = readFrontmatterValue(frontmatter, 'section').trim();
+
+  if (!title || !publishedAt || !VALID_SECTION_KEYS.has(section)) {
+    return null;
+  }
+
+  const parsedDate = new Date(publishedAt);
+  if (Number.isNaN(parsedDate.getTime())) {
+    return null;
+  }
+
+  const body = markdown.slice(frontmatterMatch[0].length);
+  const localAssetPaths = dedupeStrings([
+    normalizeLocalAssetPath(readFrontmatterValue(frontmatter, 'cover')),
+    ...readFrontmatterImagePaths(frontmatter).map(normalizeLocalAssetPath),
+    ...readMarkdownImagePaths(body).map(normalizeLocalAssetPath)
+  ]);
+
+  return {
+    slug,
+    title,
+    excerpt,
+    publishedAt,
+    section,
+    draft: readFrontmatterBoolean(frontmatter, 'draft'),
+    featured: readFrontmatterBoolean(frontmatter, 'featured'),
+    markdownPath: path,
+    localAssetPaths
+  };
+};
 
 const renderPreviewBody = (markdown: string) => {
   return markdown
@@ -206,7 +392,7 @@ const parseGithubErrorMessage = async (response: Response) => {
   }
 };
 
-const githubRequest = async (config: RepoConfig, path: string, init: RequestInit = {}) => {
+const githubRequestRaw = async (config: RepoConfig, path: string, init: RequestInit = {}) => {
   const response = await fetch(`https://api.github.com/repos/${encodeURIComponent(config.owner)}/${encodeURIComponent(config.repo)}${path}`, {
     ...init,
     headers: {
@@ -222,7 +408,31 @@ const githubRequest = async (config: RepoConfig, path: string, init: RequestInit
     throw new Error(`GitHub API error ${response.status}: ${message}`);
   }
 
-  return response.json();
+  return response;
+};
+
+const githubRequest = async (config: RepoConfig, path: string, init: RequestInit = {}) => {
+  const response = await githubRequestRaw(config, path, init);
+  const rawBody = await response.text();
+
+  if (!rawBody) {
+    return null;
+  }
+
+  return JSON.parse(rawBody) as unknown;
+};
+
+const githubRequestOptional = async (config: RepoConfig, path: string, init: RequestInit = {}) => {
+  try {
+    return await githubRequest(config, path, init);
+  } catch (error) {
+    const message = error instanceof Error ? error.message : '';
+    if (message.includes('GitHub API error 404')) {
+      return null;
+    }
+
+    throw error;
+  }
 };
 
 const validateRepoAccess = async (config: RepoConfig) => {
@@ -253,11 +463,11 @@ const formatPublishError = (error: unknown, config: RepoConfig | null) => {
   return message;
 };
 
-const createCommit = async (config: RepoConfig, files: RepoFile[], message: string) => {
+const createCommit = async (config: RepoConfig, files: RepoFile[], deletedPaths: string[], message: string) => {
   const ref = await githubRequest(config, `/git/ref/heads/${encodePathSegments(config.branch)}`);
-  const parentCommitSha = ref.object.sha as string;
+  const parentCommitSha = (ref as { object: { sha: string } }).object.sha;
   const parentCommit = await githubRequest(config, `/git/commits/${parentCommitSha}`);
-  const baseTreeSha = parentCommit.tree.sha as string;
+  const baseTreeSha = (parentCommit as { tree: { sha: string } }).tree.sha;
 
   const blobResults = await Promise.all(
     files.map(async (file) => {
@@ -273,16 +483,23 @@ const createCommit = async (config: RepoConfig, files: RepoFile[], message: stri
         path: file.path,
         mode: '100644',
         type: 'blob',
-        sha: blob.sha as string
+        sha: (blob as { sha: string }).sha
       };
     })
   );
+
+  const deleteEntries = deletedPaths.map((path) => ({
+    path,
+    mode: '100644',
+    type: 'blob',
+    sha: null
+  }));
 
   const tree = await githubRequest(config, '/git/trees', {
     method: 'POST',
     body: JSON.stringify({
       base_tree: baseTreeSha,
-      tree: blobResults
+      tree: [...blobResults, ...deleteEntries]
     })
   });
 
@@ -290,7 +507,7 @@ const createCommit = async (config: RepoConfig, files: RepoFile[], message: stri
     method: 'POST',
     body: JSON.stringify({
       message,
-      tree: tree.sha,
+      tree: (tree as { sha: string }).sha,
       parents: [parentCommitSha]
     })
   });
@@ -298,12 +515,12 @@ const createCommit = async (config: RepoConfig, files: RepoFile[], message: stri
   await githubRequest(config, `/git/refs/heads/${encodePathSegments(config.branch)}`, {
     method: 'PATCH',
     body: JSON.stringify({
-      sha: commit.sha,
+      sha: (commit as { sha: string }).sha,
       force: false
     })
   });
 
-  return commit.sha as string;
+  return (commit as { sha: string }).sha;
 };
 
 export const initStudioPublisher = ({ starterBody }: StudioInitOptions) => {
@@ -333,6 +550,12 @@ export const initStudioPublisher = ({ starterBody }: StudioInitOptions) => {
   const repoBranchInput = document.querySelector<HTMLInputElement>('#repo-branch');
   const repoTokenInput = document.querySelector<HTMLInputElement>('#repo-token');
   const repoBadge = document.querySelector<HTMLElement>('#repo-badge');
+  const loadPostsButton = document.querySelector<HTMLButtonElement>('#load-posts');
+  const existingPostCount = document.querySelector<HTMLElement>('#existing-post-count');
+  const existingPostsSelect = document.querySelector<HTMLSelectElement>('#existing-posts');
+  const deleteSummary = document.querySelector<HTMLElement>('#delete-summary');
+  const deleteConfirmSlugInput = document.querySelector<HTMLInputElement>('#delete-confirm-slug');
+  const deletePostButton = document.querySelector<HTMLButtonElement>('#delete-post');
 
   const previewSection = document.querySelector<HTMLElement>('#preview-section');
   const previewDate = document.querySelector<HTMLElement>('#preview-date');
@@ -345,14 +568,17 @@ export const initStudioPublisher = ({ starterBody }: StudioInitOptions) => {
   const filePlan = document.querySelector<HTMLElement>('#file-plan');
   const statusBox = document.querySelector<HTMLElement>('#studio-status');
 
-  if (!titleInput || !slugInput || !sectionInput || !publishedAtInput || !excerptInput || !tagsInput || !locationInput || !coverInput || !coverAltInput || !imageInput || !bodyInput || !featuredInput || !draftInput || !resetButton || !submitButton || !repoOwnerInput || !repoNameInput || !repoBranchInput || !repoTokenInput || !repoBadge || !previewSection || !previewDate || !previewCover || !previewTitle || !previewExcerpt || !previewTags || !previewBody || !previewGallery || !filePlan || !statusBox) {
+  if (!titleInput || !slugInput || !sectionInput || !publishedAtInput || !excerptInput || !tagsInput || !locationInput || !coverInput || !coverAltInput || !imageInput || !bodyInput || !featuredInput || !draftInput || !resetButton || !submitButton || !repoOwnerInput || !repoNameInput || !repoBranchInput || !repoTokenInput || !repoBadge || !loadPostsButton || !existingPostCount || !existingPostsSelect || !deleteSummary || !deleteConfirmSlugInput || !deletePostButton || !previewSection || !previewDate || !previewCover || !previewTitle || !previewExcerpt || !previewTags || !previewBody || !previewGallery || !filePlan || !statusBox) {
     return;
   }
 
   const state = {
     coverFile: null as File | null,
     imageFiles: [] as File[],
-    previewUrls: [] as string[]
+    previewUrls: [] as string[],
+    existingPosts: [] as ExistingStudioPost[],
+    deletePlan: null as DeletePlan | null,
+    deleteLookupRequest: 0
   };
 
   const setStatus = (title: string, message: string, tone = '') => {
@@ -361,6 +587,264 @@ export const initStudioPublisher = ({ starterBody }: StudioInitOptions) => {
 
   const setStatusHtml = (title: string, html: string) => {
     statusBox.innerHTML = `<h2 class="title-2" style="font-size: 1.25rem;">${escapeHtml(title)}</h2>${html}`;
+  };
+
+  const getSelectedExistingPost = () => {
+    const slug = existingPostsSelect.value;
+    return state.existingPosts.find((post) => post.slug === slug) ?? null;
+  };
+
+  const formatStudioDate = (value: string) => {
+    if (!value) {
+      return 'Unknown date';
+    }
+
+    const parsed = new Date(value);
+    if (Number.isNaN(parsed.getTime())) {
+      return value;
+    }
+
+    return new Intl.DateTimeFormat('en', {
+      year: 'numeric',
+      month: 'short',
+      day: 'numeric'
+    }).format(parsed);
+  };
+
+  const renderExistingPostOptions = () => {
+    existingPostCount.textContent = state.existingPosts.length > 0 ? `${state.existingPosts.length} posts loaded` : 'No posts found';
+    existingPostsSelect.innerHTML = ['<option value="">Select a post…</option>', ...state.existingPosts.map((post) => {
+      const labelParts = [formatStudioDate(post.publishedAt), SECTION_LABELS[post.section] ?? post.section];
+      if (post.draft) {
+        labelParts.push('Draft');
+      }
+
+      return `<option value="${escapeHtml(post.slug)}">${escapeHtml(`${labelParts.join(' · ')} · ${post.title}`)}</option>`;
+    })].join('');
+    existingPostsSelect.disabled = state.existingPosts.length === 0;
+  };
+
+  const getAssetUsageCounts = () => {
+    const counts = new Map<string, number>();
+
+    state.existingPosts.forEach((post) => {
+      post.localAssetPaths.forEach((path) => {
+        counts.set(path, (counts.get(path) ?? 0) + 1);
+      });
+    });
+
+    return counts;
+  };
+
+  const repositoryPathExists = async (config: RepoConfig, path: string) => {
+    const payload = await githubRequestOptional(config, `/contents/${encodePathSegments(path)}?ref=${encodeURIComponent(config.branch)}`) as GithubContentItem | GithubContentItem[] | null;
+
+    if (!payload) {
+      return false;
+    }
+
+    if (Array.isArray(payload)) {
+      return payload.length > 0;
+    }
+
+    return payload.type === 'file';
+  };
+
+  const buildDeletePlan = async (config: RepoConfig, post: ExistingStudioPost): Promise<DeletePlan> => {
+    const assetUsageCounts = getAssetUsageCounts();
+    const postFolderPath = `public/images/posts/${post.slug}`;
+    const postFolderPrefix = `${postFolderPath}/`;
+    const folderAssetPaths = await fetchRepositoryFiles(config, postFolderPath);
+    const folderAssetSet = new Set(folderAssetPaths);
+    const externalLinkedAssets = post.localAssetPaths.filter((path) => !path.startsWith(postFolderPrefix));
+    const externalExistenceEntries = await Promise.all(externalLinkedAssets.map(async (path) => {
+      return [path, await repositoryPathExists(config, path)] as const;
+    }));
+    const externalExistenceMap = new Map(externalExistenceEntries);
+
+    const linkedUniqueAssetPaths: string[] = [];
+    const sharedLinkedAssetPaths: string[] = [];
+    const missingLinkedAssetPaths: string[] = [];
+
+    post.localAssetPaths.forEach((assetPath) => {
+      const usageCount = assetUsageCounts.get(assetPath) ?? 0;
+      const exists = assetPath.startsWith(postFolderPrefix)
+        ? folderAssetSet.has(assetPath)
+        : externalExistenceMap.get(assetPath) === true;
+
+      if (!exists) {
+        missingLinkedAssetPaths.push(assetPath);
+        return;
+      }
+
+      if (usageCount > 1) {
+        sharedLinkedAssetPaths.push(assetPath);
+        return;
+      }
+
+      if (!assetPath.startsWith(postFolderPrefix)) {
+        linkedUniqueAssetPaths.push(assetPath);
+      }
+    });
+
+    const sharedAssetSet = new Set(sharedLinkedAssetPaths);
+    const autoDeletePaths = dedupeStrings([
+      post.markdownPath,
+      ...folderAssetPaths.filter((path) => !sharedAssetSet.has(path)),
+      ...linkedUniqueAssetPaths
+    ]);
+
+    return {
+      slug: post.slug,
+      markdownPath: post.markdownPath,
+      autoDeletePaths,
+      folderAssetPaths,
+      linkedUniqueAssetPaths: dedupeStrings(linkedUniqueAssetPaths),
+      sharedLinkedAssetPaths: dedupeStrings(sharedLinkedAssetPaths),
+      missingLinkedAssetPaths: dedupeStrings(missingLinkedAssetPaths)
+    };
+  };
+
+  const renderDeleteSummary = (post: ExistingStudioPost | null, plan: DeletePlan | null = null) => {
+    if (!post) {
+      deleteSummary.innerHTML = 'Load posts to manage deletions.';
+      return;
+    }
+
+    const sectionLabel = SECTION_LABELS[post.section] ?? post.section;
+    const flags = [post.draft ? 'Draft' : 'Published', post.featured ? 'Featured' : 'Standard'];
+    const renderItems = (items: string[], emptyMessage: string) => {
+      return items.length > 0
+        ? `<ul class="info-list" style="margin: 0; padding-left: 18px;">${items.map((path) => `<li style="padding: 4px 0; word-break: break-all;">${escapeHtml(path)}</li>`).join('')}</ul>`
+        : `<p style="margin: 0; color: var(--text-3);">${escapeHtml(emptyMessage)}</p>`;
+    };
+
+    const autoDeletePaths = plan?.autoDeletePaths ?? [];
+    const sharedLinkedAssetPaths = plan?.sharedLinkedAssetPaths ?? [];
+    const missingLinkedAssetPaths = plan?.missingLinkedAssetPaths ?? [];
+    const linkedUniqueAssetPaths = plan?.linkedUniqueAssetPaths ?? [];
+    const folderAssetPaths = plan?.folderAssetPaths ?? [];
+
+    deleteSummary.innerHTML = `<div style="display: grid; gap: 10px;">
+      <div><strong>Title:</strong> ${escapeHtml(post.title)}</div>
+      <div><strong>Slug:</strong> ${escapeHtml(post.slug)}</div>
+      <div><strong>Section:</strong> ${escapeHtml(sectionLabel)}</div>
+      <div><strong>Date:</strong> ${escapeHtml(formatStudioDate(post.publishedAt))}</div>
+      <div><strong>Status:</strong> ${escapeHtml(flags.join(' · '))}</div>
+      <div><strong>Excerpt:</strong> ${escapeHtml(post.excerpt || 'No excerpt available.')}</div>
+      <div><strong>Referenced local assets:</strong> ${escapeHtml(String(post.localAssetPaths.length))}</div>
+      <div><strong>Files that will be deleted automatically:</strong> ${escapeHtml(String(autoDeletePaths.length))}</div>
+      ${renderItems(autoDeletePaths, 'No delete plan loaded yet.')}
+      <div><strong>Post folder assets discovered:</strong> ${escapeHtml(String(folderAssetPaths.length))}</div>
+      ${renderItems(folderAssetPaths, 'No dedicated post folder assets were found.')}
+      <div><strong>Unique linked assets outside the post folder:</strong> ${escapeHtml(String(linkedUniqueAssetPaths.length))}</div>
+      ${renderItems(linkedUniqueAssetPaths, 'No extra linked assets will be deleted outside the post folder.')}
+      <div><strong>Shared linked assets that will be kept:</strong> ${escapeHtml(String(sharedLinkedAssetPaths.length))}</div>
+      ${renderItems(sharedLinkedAssetPaths, 'No shared assets need to be preserved.')}
+      <div><strong>Referenced assets missing from the repository:</strong> ${escapeHtml(String(missingLinkedAssetPaths.length))}</div>
+      ${renderItems(missingLinkedAssetPaths, 'No missing referenced assets were detected.')}
+    </div>`;
+  };
+
+  const updateDeleteButtonState = () => {
+    const post = getSelectedExistingPost();
+    const confirmed = !!post && deleteConfirmSlugInput.value.trim() === post.slug;
+    const deleteFileCount = state.deletePlan && post && state.deletePlan.slug === post.slug ? state.deletePlan.autoDeletePaths.length : 0;
+
+    deletePostButton.textContent = deleteFileCount > 0 ? `Delete selected post (${deleteFileCount} files)` : 'Delete selected post';
+
+    const hasLoadedFiles = !!post && !!state.deletePlan && state.deletePlan.slug === post.slug && deleteFileCount > 0;
+
+    deletePostButton.disabled = !(confirmed && hasLoadedFiles);
+  };
+
+  const resetExistingPosts = (countLabel = 'No posts loaded', summaryMessage = 'Load posts to manage deletions.') => {
+    state.existingPosts = [];
+    state.deletePlan = null;
+    state.deleteLookupRequest += 1;
+
+    existingPostCount.textContent = countLabel;
+    existingPostsSelect.innerHTML = '<option value="">Select a post…</option>';
+    existingPostsSelect.disabled = true;
+    deleteConfirmSlugInput.value = '';
+    deleteConfirmSlugInput.disabled = true;
+    deletePostButton.disabled = true;
+    deleteSummary.innerHTML = summaryMessage;
+  };
+
+  const fetchRepositoryFiles = async (config: RepoConfig, path: string): Promise<string[]> => {
+    const payload = await githubRequestOptional(config, `/contents/${encodePathSegments(path)}?ref=${encodeURIComponent(config.branch)}`) as GithubContentItem[] | GithubContentItem | null;
+
+    if (!payload) {
+      return [];
+    }
+
+    if (Array.isArray(payload)) {
+      const nestedResults = await Promise.all(payload.map(async (entry) => {
+        if (entry.type === 'dir') {
+          return fetchRepositoryFiles(config, entry.path);
+        }
+
+        return [entry.path];
+      }));
+
+      return nestedResults.flat().sort((left, right) => left.localeCompare(right));
+    }
+
+    if (payload.type === 'dir') {
+      return fetchRepositoryFiles(config, payload.path);
+    }
+
+    return [payload.path];
+  };
+
+  const loadDeleteFilesForSelection = async () => {
+    const post = getSelectedExistingPost();
+
+    deleteConfirmSlugInput.value = '';
+    state.deletePlan = null;
+
+    if (!post) {
+      deleteConfirmSlugInput.disabled = true;
+      renderDeleteSummary(null);
+      updateDeleteButtonState();
+      return;
+    }
+
+    deleteConfirmSlugInput.disabled = false;
+    deleteSummary.innerHTML = 'Loading files for the selected post…';
+    updateDeleteButtonState();
+
+    let config: RepoConfig;
+
+    try {
+      config = getRepoConfig();
+    } catch {
+      deleteSummary.innerHTML = 'Repository configuration is required before delete details can be loaded.';
+      updateDeleteButtonState();
+      return;
+    }
+
+    const requestId = ++state.deleteLookupRequest;
+
+    try {
+      const plan = await buildDeletePlan(config, post);
+      if (requestId !== state.deleteLookupRequest || existingPostsSelect.value !== post.slug) {
+        return;
+      }
+
+      state.deletePlan = plan;
+      renderDeleteSummary(post, plan);
+      updateDeleteButtonState();
+    } catch (error) {
+      if (requestId !== state.deleteLookupRequest || existingPostsSelect.value !== post.slug) {
+        return;
+      }
+
+      state.deletePlan = null;
+      deleteSummary.innerHTML = escapeHtml(formatPublishError(error, config));
+      updateDeleteButtonState();
+    }
   };
 
   const loadRepoConfig = () => {
@@ -496,6 +980,7 @@ export const initStudioPublisher = ({ starterBody }: StudioInitOptions) => {
     element.addEventListener('input', () => {
       persistRepoConfig();
       updateFilePlan();
+      resetExistingPosts('Posts need reload', 'Repository settings changed. Reload posts before deleting anything.');
     });
   });
 
@@ -521,6 +1006,171 @@ export const initStudioPublisher = ({ starterBody }: StudioInitOptions) => {
   });
 
   resetButton.addEventListener('click', resetForm);
+
+  existingPostsSelect.addEventListener('change', () => {
+    void loadDeleteFilesForSelection();
+  });
+
+  deleteConfirmSlugInput.addEventListener('input', updateDeleteButtonState);
+
+  loadPostsButton.addEventListener('click', async () => {
+    let config: RepoConfig;
+
+    try {
+      config = getRepoConfig();
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Invalid repository configuration.';
+      setStatus('Configuration required', message, 'status-error');
+      resetExistingPosts('No posts loaded', 'Repository configuration is required before loading posts.');
+      return;
+    }
+
+    loadPostsButton.disabled = true;
+    loadPostsButton.textContent = 'Loading...';
+    resetExistingPosts('Loading posts...', 'Loading post metadata from the repository...');
+    setStatus('Loading posts', 'Fetching current posts from the repository source...');
+
+    try {
+      await validateRepoAccess(config);
+
+      const payload = await githubRequestOptional(config, `/contents/${encodePathSegments('src/content/posts')}?ref=${encodeURIComponent(config.branch)}`) as GithubContentItem[] | null;
+      const markdownEntries = Array.isArray(payload)
+        ? payload.filter((entry) => entry.type === 'file' && entry.name.endsWith('.md'))
+        : [];
+
+      const existingPosts: ExistingStudioPost[] = [];
+      const loadWarnings: string[] = [];
+
+      for (const entry of markdownEntries) {
+        try {
+          const filePayload = await githubRequest(config, `/contents/${encodePathSegments(entry.path)}?ref=${encodeURIComponent(config.branch)}`) as GithubContentItem | null;
+
+          if (!filePayload?.content) {
+            loadWarnings.push(`${entry.name}: skipped because file content was unavailable.`);
+            continue;
+          }
+
+          const markdown = decodeBase64(filePayload.content);
+          const parsedPost = parseStoredPostMarkdown(entry.path, markdown);
+
+          if (!parsedPost) {
+            loadWarnings.push(`${entry.name}: skipped because it does not match the post frontmatter schema.`);
+            continue;
+          }
+
+          existingPosts.push(parsedPost);
+        } catch (error) {
+          const message = error instanceof Error ? error.message : 'Unknown error';
+          loadWarnings.push(`${entry.name}: skipped because it could not be parsed (${message}).`);
+        }
+      }
+
+      existingPosts.sort((left, right) => {
+        return new Date(right.publishedAt || 0).getTime() - new Date(left.publishedAt || 0).getTime();
+      });
+
+      state.existingPosts = existingPosts;
+      renderExistingPostOptions();
+      deleteSummary.innerHTML = existingPosts.length > 0 ? 'Select a post to inspect its delete plan.' : 'No markdown posts were found in src/content/posts.';
+
+      if (loadWarnings.length > 0) {
+        setStatusHtml(
+          'Posts loaded with warnings',
+          `<p style="margin-top: 12px; color: var(--text-2);">${escapeHtml(existingPosts.length > 0 ? 'The delete list is available, but some repository files were skipped because they are not valid posts or could not be parsed.' : 'No valid posts were found in the configured repository branch.')}</p>
+           <ul class="info-list" style="margin-top: 16px;">
+             ${loadWarnings.slice(0, 6).map((warning) => `<li style="padding: 8px 0; color: var(--text-2);">${escapeHtml(warning)}</li>`).join('')}
+             ${loadWarnings.length > 6 ? `<li style="padding: 8px 0; color: var(--text-2);">${escapeHtml(`And ${String(loadWarnings.length - 6)} more warnings...`)}</li>` : ''}
+           </ul>`
+        );
+      } else {
+        setStatus('Posts loaded', existingPosts.length > 0 ? 'Select a post to inspect and delete it.' : 'No posts were found in the configured repository branch.');
+      }
+    } catch (error) {
+      resetExistingPosts('Load failed', 'Unable to load posts from the configured repository.');
+      setStatus('Load failed', formatPublishError(error, config), 'status-error');
+    } finally {
+      loadPostsButton.disabled = false;
+      loadPostsButton.textContent = 'Load posts';
+    }
+  });
+
+  deletePostButton.addEventListener('click', async () => {
+    const post = getSelectedExistingPost();
+
+    if (!post) {
+      setStatus('Select a post', 'Choose an existing post before attempting deletion.', 'status-error');
+      return;
+    }
+
+    if (deleteConfirmSlugInput.value.trim() !== post.slug) {
+      setStatus('Confirmation required', `Type ${post.slug} exactly to confirm deletion.`, 'status-error');
+      return;
+    }
+
+    const deletePlan = state.deletePlan;
+
+    if (!deletePlan || deletePlan.slug !== post.slug || deletePlan.autoDeletePaths.length === 0) {
+      setStatus('Delete plan missing', 'Load the selected post details before deleting it.', 'status-error');
+      return;
+    }
+
+    if (!window.confirm(`Delete ${post.title} (${post.slug}) and all associated files? This cannot be undone.`)) {
+      return;
+    }
+
+    let config: RepoConfig;
+
+    try {
+      config = getRepoConfig();
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Invalid repository configuration.';
+      setStatus('Configuration required', message, 'status-error');
+      return;
+    }
+
+    loadPostsButton.disabled = true;
+    existingPostsSelect.disabled = true;
+    deleteConfirmSlugInput.disabled = true;
+    deletePostButton.disabled = true;
+    deletePostButton.textContent = 'Deleting...';
+    setStatus('Deleting', `Removing ${post.slug} from the repository source...`);
+
+    try {
+      await validateRepoAccess(config);
+      const commitSha = await createCommit(config, [], deletePlan.autoDeletePaths, `Delete post: ${post.title}`);
+      const actionsUrl = `https://github.com/${encodeURIComponent(config.owner)}/${encodeURIComponent(config.repo)}/actions`;
+      const commitUrl = `https://github.com/${encodeURIComponent(config.owner)}/${encodeURIComponent(config.repo)}/commit/${commitSha}`;
+
+      state.existingPosts = state.existingPosts.filter((entry) => entry.slug !== post.slug);
+      state.deletePlan = null;
+
+      renderExistingPostOptions();
+      existingPostsSelect.value = '';
+      deleteConfirmSlugInput.value = '';
+      deleteConfirmSlugInput.disabled = state.existingPosts.length === 0;
+      renderDeleteSummary(null);
+      updateDeleteButtonState();
+
+      setStatusHtml(
+        'Deleted',
+        `<p style="margin-top: 12px; color: var(--text-2);">The selected post and its associated files were removed from the deployment source.</p>
+         <ul class="info-list" style="margin-top: 16px;">
+           <li style="padding: 8px 0;"><a href="${commitUrl}" target="_blank" rel="noreferrer">View commit</a></li>
+           <li style="padding: 8px 0;"><a href="${actionsUrl}" target="_blank" rel="noreferrer">View deployment workflow</a></li>
+           <li style="padding: 8px 0;">Deleted slug: ${escapeHtml(post.slug)}</li>
+           <li style="padding: 8px 0;">Deleted files: ${escapeHtml(String(deletePlan.autoDeletePaths.length))}</li>
+         </ul>`
+      );
+    } catch (error) {
+      setStatus('Delete failed', formatPublishError(error, config), 'status-error');
+      deleteConfirmSlugInput.disabled = false;
+      updateDeleteButtonState();
+    } finally {
+      loadPostsButton.disabled = false;
+      existingPostsSelect.disabled = state.existingPosts.length === 0;
+      deletePostButton.textContent = 'Delete selected post';
+    }
+  });
 
   form.addEventListener('submit', async (event) => {
     event.preventDefault();
@@ -611,7 +1261,7 @@ export const initStudioPublisher = ({ starterBody }: StudioInitOptions) => {
         encoding: 'utf-8'
       });
 
-      const commitSha = await createCommit(config, files, `Publish post: ${title}`);
+      const commitSha = await createCommit(config, files, [], `Publish post: ${title}`);
       const actionsUrl = `https://github.com/${encodeURIComponent(config.owner)}/${encodeURIComponent(config.repo)}/actions`;
       const commitUrl = `https://github.com/${encodeURIComponent(config.owner)}/${encodeURIComponent(config.repo)}/commit/${commitSha}`;
 
