@@ -166,44 +166,31 @@ const versionUrl = withBase('/version.json');
       </div>
     </div>
     <SiteHeader />
-    <section class="shell site-operator-banner-wrap" aria-label="Operator protection notice">
-      <div class="site-operator-banner" role="note">
-        <span class="site-operator-banner__label">Operator Protection Notice</span>
-        <p class="site-operator-banner__text">This website is a publication only. Nothing published here grants authorization, operational approval, facilitation, endorsement, or instruction for unauthorized or unlawful conduct, and no downstream third-party misuse is attributable to the website operator.</p>
-      </div>
-    </section>
     <section id="visit-shield-wrap" class="visit-shield-wrap" aria-label="First-visit acknowledgment" hidden>
       <div id="visit-shield" class="shell visit-shield" role="dialog" aria-labelledby="visit-shield-title" aria-live="polite" aria-modal="true" hidden>
         <div class="visit-shield__copy">
-          <span class="visit-shield__label">First-Visit Acknowledgment</span>
-          <h2 id="visit-shield-title" class="title-2">Acknowledgment required: publication only, no authorization created.</h2>
-          <p class="visit-shield__text">Nothing published here grants authorization, facilitation, endorsement, operational approval, or reliance rights. Any later third-party misuse or illegal deployment remains independent of this website and is not legally attributable to the operator.</p>
+          <span class="visit-shield__label">Click-Wrap Required</span>
+          <h2 id="visit-shield-title" class="title-2">Terms of Use, Disclaimer, and Indemnification Agreement</h2>
+          <p class="visit-shield__text">Access to this website requires your agreement to the full Terms of Use, Disclaimer, and Indemnification Agreement.</p>
         </div>
-        <button class="btn btn-primary visit-shield__button" id="visit-shield-dismiss" type="button">I understand</button>
+        <div class="visit-shield__overview" role="document" aria-label="Terms summary">
+          <div class="visit-shield__summary">
+            <p>The full agreement includes Educational Purpose Only, No Warranty / As-Is, Assumption of Risk, Indemnification, Liquidated Damages, Governing Law &amp; Jurisdiction, Third-Party Tools Disclaimer, and No Professional Relationship terms.</p>
+            <a class="btn btn-outline visit-shield__link" href={withBase('/agreement/')}>Review full agreement</a>
+          </div>
+        </div>
+        <div class="visit-shield__actions">
+          <label class="visit-shield__check" for="visit-shield-agree">
+            <input id="visit-shield-agree" type="checkbox" />
+            <span>I have read and agree to the Terms of Use, Disclaimer, and Indemnification Agreement.</span>
+          </label>
+          <button class="btn btn-primary visit-shield__button" id="visit-shield-dismiss" type="button" disabled>I agree and continue</button>
+        </div>
       </div>
     </section>
     <main class="page-main">
       <slot />
     </main>
-    <section class="shell site-disclaimer-wrap" aria-labelledby="site-disclaimer-title">
-      <div class="site-disclaimer" role="note" aria-label="Legal disclaimer">
-        <div class="site-disclaimer__header">
-          <span class="eyebrow">Legal Notice</span>
-          <h2 id="site-disclaimer-title" class="title-2">Strict Publication-Only, No-Authorization, and Full Operator Liability Disclaimer</h2>
-        </div>
-        <p class="site-disclaimer__lead">This website is an informational, educational, documentary, and archival publication only. Any teaching material, technical note, referenced program, script, workflow, demonstration, external link, or linked resource appearing here is made available solely within a publication context for lawful study, documentation, research, analysis, defensive awareness, and properly authorized testing. Publication here does not create permission, operational approval, facilitation, service provision, sponsorship, endorsement, distribution authority, or reliance rights in favor of any reader or third party.</p>
-        <div class="site-disclaimer__grid">
-          <p>No article, note, quote, screenshot, code fragment, linked program, referenced tool, demonstration, archive entry, or technical discussion on this website shall be construed as a license, request, solicitation, inducement, instruction, invitation, facilitation service, partnership offer, agency relationship, conspiracy, coordinated undertaking, operational approval, or knowing encouragement for any person to engage in unauthorized access, privacy violation, circumvention, disruption, surveillance, credential misuse, exploitation, or any other unlawful or abusive act.</p>
-          <p>Publication of material here does not convert the website operator into a distributor on behalf of third parties, a service provider for downstream use, a sponsor of implementation, a technical support point, a legal approver, or a participant in any later conduct undertaken by a visitor, downloader, scraper, mirror, republisher, or outside actor.</p>
-          <p>Where programs, utilities, repositories, services, or external resources are mentioned, they are mentioned only as objects of reference, commentary, citation, criticism, documentation, analysis, or archival record. Such mention does not mean that the website operator authored them, controls them, maintains them, endorses them, redistributes them on behalf of others, verifies their legality, guarantees their safety, or adopts any downstream action taken by people who later obtain or misuse them elsewhere.</p>
-          <p>The website operator does not control what any visitor, scraper, mirror, republisher, downloader, channel, platform, or outside actor may do after encountering content here. Any later reposting, redistribution, operational deployment, malicious adaptation, unlawful use, or harmful exploitation by any third party is independent of this website, beyond its control, and undertaken without the website operator's authorization, participation, direction, approval, assistance, or ratification.</p>
-          <p>No person may reasonably attribute third-party misconduct to the mere fact that educational or technical material was published here in a publication context. Publication for study, documentation, analysis, or authorized testing does not transform the website operator into a participant, accomplice, co-actor, service provider, sponsor, approver, or legally responsible party in relation to any later illegal act committed by someone else.</p>
-          <p>All materials are provided strictly as-is and as-available, without representation or warranty as to legality, safety, completeness, accuracy, fitness for purpose, current validity, downstream outcome, or third-party conduct. The website operator assumes no duty to monitor third-party use, no duty to prevent independent misuse by outsiders, no duty to remove every referenced item in anticipation of misuse, and no duty to guarantee that referenced or discussed material will not be abused by persons acting contrary to law or authorization boundaries.</p>
-          <p>As an additional and secondary point, the website operator does not condone or morally align with malicious, harmful, intrusive, or unlawful use derived by any third party from material discussed, linked, summarized, or archived on this website.</p>
-          <p>To the fullest extent permitted by applicable law, the website operator, author, and any related contributors expressly disclaim all legal, civil, criminal, contractual, regulatory, technical, financial, reputational, data-related, privacy-related, and consequential responsibility or liability for any third-party misuse, unlawful deployment, unauthorized exploitation, or harmful operational use allegedly connected to materials published on or linked from this website.</p>
-        </div>
-      </div>
-    </section>
     <SiteFooter />
     <BackgroundMusic />
     <script is:inline>
@@ -245,17 +232,28 @@ const versionUrl = withBase('/version.json');
           const wrap = document.getElementById('visit-shield-wrap');
           const shield = document.getElementById('visit-shield');
           const dismissButton = document.getElementById('visit-shield-dismiss');
-          if (!(wrap instanceof HTMLElement) || !(shield instanceof HTMLElement) || !(dismissButton instanceof HTMLButtonElement)) {
+          const agreementCheckbox = document.getElementById('visit-shield-agree');
+          if (!(wrap instanceof HTMLElement) || !(shield instanceof HTMLElement) || !(dismissButton instanceof HTMLButtonElement) || !(agreementCheckbox instanceof HTMLInputElement)) {
             return;
           }
 
           const entryPending = document.documentElement.classList.contains('site-entry-pending');
+
+          const syncAgreementState = () => {
+            const agreed = agreementCheckbox.checked === true;
+            dismissButton.disabled = !agreed;
+            dismissButton.setAttribute('aria-disabled', agreed ? 'false' : 'true');
+          };
 
           const setVisible = (visible) => {
             wrap.hidden = !visible;
             shield.hidden = !visible;
             shield.setAttribute('aria-hidden', visible ? 'false' : 'true');
             document.body.classList.toggle('visit-shield-open', visible);
+            if (visible) {
+              agreementCheckbox.checked = false;
+            }
+            syncAgreementState();
           };
 
           const revealWhenReady = () => {
@@ -271,15 +269,22 @@ const versionUrl = withBase('/version.json');
             document.addEventListener(readyEventName, revealWhenReady, { once: true });
           }
 
-          if (dismissButton.dataset.bound === '1') {
-            return;
+          if (agreementCheckbox.dataset.bound !== '1') {
+            agreementCheckbox.dataset.bound = '1';
+            agreementCheckbox.addEventListener('change', syncAgreementState);
           }
 
-          dismissButton.dataset.bound = '1';
-          dismissButton.addEventListener('click', () => {
-            writeAcceptedState();
-            setVisible(false);
-          });
+          if (dismissButton.dataset.bound !== '1') {
+            dismissButton.dataset.bound = '1';
+            dismissButton.addEventListener('click', () => {
+              if (agreementCheckbox.checked !== true) {
+                syncAgreementState();
+                return;
+              }
+              writeAcceptedState();
+              setVisible(false);
+            });
+          }
         };
 
         if (window.__allenVisitShieldBound !== true) {

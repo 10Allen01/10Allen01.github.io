@@ -33,7 +33,6 @@ const hasInlinePostImages = /!\[[^\]]*\]\((?:\/images\/|https?:\/\/)/.test(post.
           {post.data.location && <span>{post.data.location}</span>}
         </div>
         <h1 class="title-1">{post.data.title}</h1>
-        <div class="article-legal-chip">Publication-only notice: no authorization, facilitation, endorsement, or operational approval is created by this article.</div>
       </div>
     </header>
 
@@ -44,25 +43,8 @@ const hasInlinePostImages = /!\[[^\]]*\]\((?:\/images\/|https?:\/\/)/.test(post.
     )}
 
     <div class="shell">
-      <aside class="article-warning" role="note" aria-label="High-risk content notice">
-        <div class="article-warning__header">
-          <span class="eyebrow">High-Risk Content Notice</span>
-          <h2 class="title-2">This article is publication-only and creates no authorization, operational approval, or facilitation rights.</h2>
-        </div>
-        <p>This article is published only as informational, documentary, research, analytical, or archival material. Its presence on this website does not create permission, facilitation, endorsement, implementation support, technical assistance, or any operator-backed right to use, reproduce, deploy, adapt, or act upon the material in unauthorized or unlawful ways.</p>
-        <p>If any person later uses, republishes, automates, operationalizes, adapts, or misuses anything discussed or referenced here for unauthorized, harmful, or illegal purposes, that conduct is independent of this website, outside the operator's control, and carried out without the operator's authorization, participation, approval, assistance, or legal responsibility. As a secondary point only, the operator also does not morally condone such conduct.</p>
-      </aside>
       <div class="article-prose">
         <Content />
-
-        <aside class="article-reference-disclaimer" role="note" aria-label="External links and tool reference disclaimer">
-          <div class="article-reference-disclaimer__header">
-            <span class="eyebrow">External Links and Tool References</span>
-            <h2 class="title-2">Reference does not mean endorsement, redistribution support, or operational authorization.</h2>
-          </div>
-          <p>Where this article cites external links, repositories, programs, scripts, utilities, services, or third-party tools, such references are provided only for commentary, documentation, research, archival record, or contextual citation. They do not constitute operator-backed deployment guidance, redistribution support, technical assistance, operator sponsorship, or approval for any downstream use.</p>
-          <p>The inclusion of a name, link, repository, or tool reference does not mean that this website authored it, maintains it, verifies it, distributes it on behalf of its creator, guarantees its legality, or accepts responsibility for how any third party later downloads, republishes, adapts, deploys, or misuses it. Reference alone does not create legal reliance rights against the website operator.</p>
-        </aside>
 
         {imageList.length > 0 && !hasInlinePostImages && (
           <div class="post-grid" style="margin-top: 80px;">

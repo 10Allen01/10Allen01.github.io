@@ -1,0 +1,272 @@
+---
+import BaseLayout from '../layouts/BaseLayout.astro';
+import { siteConfig } from '../config/site';
+
+const agreementSections = [
+  { number: '01', id: 'acceptance', label: 'Acceptance, Scope, and Binding Effect' },
+  { number: '02', id: 'definitions', label: 'Definitions and Construction' },
+  { number: '03', id: 'eligibility', label: 'Eligibility, Capacity, and User Representations' },
+  { number: '04', id: 'educational-purpose', label: 'Educational Purpose Only Disclaimer' },
+  { number: '05', id: 'lawful-use', label: 'Lawful Use and Prohibited Conduct' },
+  { number: '06', id: 'no-warranty', label: 'No Warranty / As-Is / As-Available' },
+  { number: '07', id: 'risk', label: 'Assumption of Risk and No Duty of Care' },
+  { number: '08', id: 'third-party', label: 'Third-Party Materials and External References' },
+  { number: '09', id: 'no-relationship', label: 'No Professional Relationship and No Advice' },
+  { number: '10', id: 'license', label: 'Intellectual Property and Limited Permission to Access' },
+  { number: '11', id: 'enforcement', label: 'Monitoring, Restriction, Suspension, and Removal' },
+  { number: '12', id: 'indemnification', label: 'Indemnification, Defence, and Reimbursement' },
+  { number: '13', id: 'liquidated-damages', label: 'Liquidated Damages and Equitable Relief' },
+  { number: '14', id: 'limitation', label: 'Limitation of Liability' },
+  { number: '15', id: 'governing-law', label: 'Governing Law and Jurisdiction' },
+  { number: '16', id: 'general', label: 'General Provisions' }
+] as const;
+---
+
+<BaseLayout title="Agreement" description="Terms of Use, Disclaimer, and Indemnification Agreement." pageClass="agreement-page">
+  <section class="shell page-intro agreement-hero">
+    <div class="grid agreement-hero__grid">
+      <div class="page-intro__copy">
+        <span class="eyebrow">Agreement</span>
+        <h1 class="title-1">Terms of Use, Disclaimer, and Indemnification Agreement</h1>
+        <p class="summary">This document governs all access to, browsing of, reference to, and use of {siteConfig.title}. It is intended to operate as a formal user agreement, risk allocation instrument, disclaimer statement, and enforcement framework.</p>
+      </div>
+      <div class="agreement-hero__panel agreement-meta">
+        <div class="agreement-meta__row">
+          <span class="agreement-meta__label">Document</span>
+          <span class="agreement-meta__value">Terms of Use, Disclaimer, and Indemnification Agreement</span>
+        </div>
+        <div class="agreement-meta__row">
+          <span class="agreement-meta__label">Website</span>
+          <span class="agreement-meta__value">{siteConfig.title}</span>
+        </div>
+        <div class="agreement-meta__row">
+          <span class="agreement-meta__label">Applies To</span>
+          <span class="agreement-meta__value">All visitors, readers, subscribers, users, and any person obtaining or relying on Content from this website</span>
+        </div>
+        <div class="agreement-meta__row">
+          <span class="agreement-meta__label">Primary Forum</span>
+          <span class="agreement-meta__value">[ACT/QLD], Australia</span>
+        </div>
+        <div class="agreement-meta__row">
+          <span class="agreement-meta__label">Important</span>
+          <span class="agreement-meta__value">Use of this website constitutes acceptance of all terms below</span>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="shell section agreement-document">
+    <aside class="agreement-document__sidebar" aria-label="Agreement table of contents">
+      <div class="agreement-toc">
+        <div class="agreement-toc__header">
+          <span class="agreement-toc__eyebrow">Contents</span>
+          <h2 class="title-2">Table of Contents</h2>
+        </div>
+        <nav class="agreement-toc__nav">
+          {agreementSections.map((section) => (
+            <a href={`#${section.id}`} class="agreement-toc__link">
+              <span class="agreement-toc__number">{section.number}</span>
+              <span>{section.label}</span>
+            </a>
+          ))}
+        </nav>
+      </div>
+    </aside>
+
+    <div class="agreement-content agreement-sections">
+      <section class="agreement-preamble" aria-labelledby="agreement-preamble-title">
+        <div class="agreement-preamble__header">
+          <span class="agreement-preamble__label">Preliminary Statement</span>
+          <h2 id="agreement-preamble-title" class="title-2">Read this Agreement carefully before accessing or using the website.</h2>
+        </div>
+        <p>This Agreement is intended to define the legal basis upon which the website is made available to the public. It allocates risk, disclaims warranties, defines the educational character of the material, limits permitted use, sets out enforcement and indemnity mechanisms, and identifies the law and courts that will govern disputes.</p>
+        <p>If you do not agree to every part of this Agreement, you must not access, browse, reproduce, rely upon, use, or continue to use this website or any Content obtained from it. Continued use after notice of these terms, or after any amendment to these terms, constitutes renewed acceptance.</p>
+      </section>
+
+      <section class="agreement-section" id="acceptance" aria-labelledby="agreement-clause-1">
+        <div class="agreement-section__header">
+          <span class="agreement-section__index">01</span>
+          <h2 id="agreement-clause-1" class="title-2">Acceptance, Scope, and Binding Effect</h2>
+        </div>
+        <p>This Agreement applies to all pages, posts, archives, media, code samples, downloadable materials, references, quotations, snippets, diagrams, notes, and other materials made available through {siteConfig.title}, whether accessed directly or indirectly, whether by manual browsing, automated retrieval, cached copy, republication, referral link, excerpt, or otherwise.</p>
+        <p>By accessing or using this website in any manner, you represent and warrant that you have had a reasonable opportunity to read this Agreement in full, that you understand its legal effect, and that you agree to be bound by it as a condition of access. This Agreement applies whether or not you create an account, make contact with the author, submit information, or interact with any third-party resource linked from the website.</p>
+        <p>This Agreement is intended to operate in addition to, and not in substitution for, any rights, restrictions, liabilities, or remedies available at law or in equity. To the extent permitted by applicable law, any ambiguity in interpretation shall not be construed against the drafter merely because the drafter prepared this document.</p>
+      </section>
+
+      <section class="agreement-section" id="definitions" aria-labelledby="agreement-clause-2">
+        <div class="agreement-section__header">
+          <span class="agreement-section__index">02</span>
+          <h2 id="agreement-clause-2" class="title-2">Definitions and Construction</h2>
+        </div>
+        <ol class="agreement-list agreement-list--alpha">
+          <li><strong>"Website"</strong> means {siteConfig.title}, including all associated pages, content, code, assets, feeds, archives, and materials made available under the control of the operator.</li>
+          <li><strong>"Content"</strong> means all text, articles, notes, guides, tutorials, media, code snippets, command examples, scripts, diagrams, references, links, comments, metadata, downloads, and any derivative presentation of the same.</li>
+          <li><strong>"Operator"</strong> means the author, owner, maintainer, publisher, or controlling person behind the website, including any affiliated entity or representative acting in that capacity.</li>
+          <li><strong>"User"</strong>, <strong>"you"</strong>, or <strong>"your"</strong> means any person or entity accessing, viewing, using, copying, relying on, linking to, or obtaining Content from the website.</li>
+          <li><strong>"Third-Party Materials"</strong> means any resource, tool, repository, service, software, website, publication, organisation, platform, or hyperlink not owned and expressly controlled by the operator.</li>
+        </ol>
+        <p>Headings are included for convenience only and do not limit the meaning of any provision. References to the singular include the plural and vice versa where the context reasonably permits. References to legislation include amendments, re-enactments, and subordinate instruments, unless the context requires otherwise.</p>
+      </section>
+
+      <section class="agreement-section" id="eligibility" aria-labelledby="agreement-clause-3">
+        <div class="agreement-section__header">
+          <span class="agreement-section__index">03</span>
+          <h2 id="agreement-clause-3" class="title-2">Eligibility, Capacity, and User Representations</h2>
+        </div>
+        <p>You represent that you are legally capable of entering into a binding agreement in the jurisdiction from which you access the website and in any jurisdiction whose laws may apply to your conduct. If you access the website on behalf of an organisation, institution, employer, or other entity, you further represent that you have authority to bind that entity to this Agreement.</p>
+        <p>You further represent, warrant, and undertake that any use you make of the website and Content will be assessed by you in light of your own legal obligations, technical competence, operational environment, and regulatory constraints. You must not rely on the availability of the website as evidence that any act is lawful, safe, suitable, authorised, ethical, or professionally appropriate.</p>
+        <p>If you are prohibited by law, contract, policy, employment duty, academic requirement, regulatory order, or court order from accessing or using any part of the Content, you must not access or use the website. The operator assumes no responsibility for verifying your eligibility, and any access by an ineligible person is unauthorised as against the operator.</p>
+      </section>
+
+      <section class="agreement-section" id="educational-purpose" aria-labelledby="agreement-clause-4">
+        <div class="agreement-section__header">
+          <span class="agreement-section__index">04</span>
+          <h2 id="agreement-clause-4" class="title-2">Educational Purpose Only Disclaimer</h2>
+        </div>
+        <p>All Content published on {siteConfig.title} is provided strictly for educational, academic, analytical, documentary, archival, commentary, and lawful security research purposes. The Content is intended to contribute to discussion, understanding, and study of technical issues and does not grant, create, imply, or evidence authority to engage in any unauthorised or unlawful act.</p>
+        <p>The operator does not endorse, encourage, facilitate, organise, instruct for unlawful application, or condone unauthorised access to computer systems, networks, devices, accounts, software, data, or communications. The operator expressly disassociates the website and its Content from any activity that may contravene the Criminal Code Act 1995 (Cth) Part 10.7, any applicable state or territory law, or any corresponding law in another jurisdiction.</p>
+        <p>No article, example, screenshot, explanation, code sample, workflow, command, reference, or conceptual discussion on the website shall be read as an invitation, solicitation, recommendation, operational plan, or approval to engage in unauthorised testing, exploitation, credential misuse, evasion of access controls, data interference, service disruption, or any other unlawful or harmful conduct.</p>
+      </section>
+
+      <section class="agreement-section" id="lawful-use" aria-labelledby="agreement-clause-5">
+        <div class="agreement-section__header">
+          <span class="agreement-section__index">05</span>
+          <h2 id="agreement-clause-5" class="title-2">Lawful Use and Prohibited Conduct</h2>
+        </div>
+        <p>You may access the website solely for lawful personal reading, research, commentary, study, and other lawful uses consistent with this Agreement. You must independently verify whether any contemplated use is permitted in the jurisdiction applicable to you and in the environment in which you intend to act.</p>
+        <p>Without limiting any other restriction in this Agreement, you must not use or attempt to use the website or any Content in connection with:</p>
+        <ol class="agreement-list agreement-list--alpha">
+          <li>unauthorised access to systems, services, networks, accounts, or data;</li>
+          <li>credential theft, phishing, social engineering, surveillance, malware deployment, persistence, evasion, lateral movement, or exfiltration;</li>
+          <li>interference with the confidentiality, integrity, availability, or lawful operation of any system or service;</li>
+          <li>harassment, stalking, doxxing, coercion, blackmail, extortion, or reputational attack;</li>
+          <li>commercial resale, mass scraping, bulk republication, or repackaging of Content without express written permission where such conduct is otherwise not permitted by law;</li>
+          <li>any attempt to portray the operator as connected to, supportive of, or responsible for your conduct, operation, project, or investigation.</li>
+        </ol>
+        <p>The operator reserves the right to characterise any use inconsistent with the educational framing of the website, or inconsistent with this Agreement, as unauthorised use for all purposes available at law.</p>
+      </section>
+
+      <section class="agreement-section" id="no-warranty" aria-labelledby="agreement-clause-6">
+        <div class="agreement-section__header">
+          <span class="agreement-section__index">06</span>
+          <h2 id="agreement-clause-6" class="title-2">No Warranty / As-Is / As-Available</h2>
+        </div>
+        <p>All Content is provided on an "AS IS" and "AS AVAILABLE" basis, with all faults and without any representation, guarantee, undertaking, or warranty of any kind, express, implied, statutory, or otherwise. Without limitation, the operator disclaims any warranty of accuracy, completeness, reliability, timeliness, legality, safety, merchantability, fitness for a particular purpose, title, non-infringement, utility, quality, or availability.</p>
+        <p>The operator does not warrant that the website will remain available, uninterrupted, secure, error-free, current, properly configured for your environment, free of omission, free of typographical or technical error, or free of references that may later become stale, unavailable, modified, or inaccurate. The operator does not warrant that the Content is suitable for use in production, testing, educational instruction, institutional environments, regulated environments, or any specific system or jurisdiction.</p>
+        <p>You accept that cybersecurity-related information, even when published for educational and lawful purposes, may be incomplete, context-sensitive, rapidly outdated, dangerous if misunderstood, or subject to legal and operational constraints that vary by environment. You therefore agree that any reliance placed on the Content is at your sole risk.</p>
+      </section>
+
+      <section class="agreement-section" id="risk" aria-labelledby="agreement-clause-7">
+        <div class="agreement-section__header">
+          <span class="agreement-section__index">07</span>
+          <h2 id="agreement-clause-7" class="title-2">Assumption of Risk and No Duty of Care</h2>
+        </div>
+        <p>By using the website, you acknowledge and agree that cybersecurity techniques, command examples, tools, configurations, procedures, conceptual models, and references inherently carry risk if misunderstood, copied mechanically, applied without context, or used in environments for which they were not designed.</p>
+        <ol class="agreement-list agreement-list--alpha">
+          <li>You possess, or will obtain before use, sufficient technical competence to evaluate the legal, operational, safety, ethical, and security implications of any Content.</li>
+          <li>You assume full and sole responsibility for any act, omission, implementation, deployment, testing, adaptation, interpretation, or decision made by you or by any person acting on information obtained from the website.</li>
+          <li>You acknowledge that the operator does not owe you a duty of care with respect to your application of any technique, tool, workflow, or conceptual approach described on the website, to the maximum extent permitted by applicable law.</li>
+          <li>You accept the risk of adverse outcomes including system damage, data loss, service interruption, legal exposure, regulatory inquiry, reputational harm, financial loss, or third-party claims arising from your use, misuse, or misunderstanding of the Content.</li>
+        </ol>
+        <p>No failure by the operator to warn of a particular risk shall create any inference that no such risk exists or that the operator assumed responsibility to identify or mitigate it for you.</p>
+      </section>
+
+      <section class="agreement-section" id="third-party" aria-labelledby="agreement-clause-8">
+        <div class="agreement-section__header">
+          <span class="agreement-section__index">08</span>
+          <h2 id="agreement-clause-8" class="title-2">Third-Party Materials and External References</h2>
+        </div>
+        <p>The website may mention, quote, reference, display, link to, or discuss third-party repositories, tools, services, articles, vendors, platforms, or communities. Any such reference is provided for context, documentation, analysis, criticism, citation, or research discussion only.</p>
+        <p>Reference to any Third-Party Material does not mean the operator authored it, maintains it, redistributes it, audits it, approves it, endorses it, guarantees it, or adopts any representation made by the relevant third party. Third-Party Materials may change without notice, may be unavailable, may contain defects, may be dangerous, or may be subject to licensing, legal, or operational restrictions outside the operator's knowledge or control.</p>
+        <p>You are solely responsible for reviewing the terms, legitimacy, trustworthiness, licensing, and safety of any third-party resource before interacting with it. Any relationship you form with a third party is solely between you and that third party.</p>
+      </section>
+
+      <section class="agreement-section" id="no-relationship" aria-labelledby="agreement-clause-9">
+        <div class="agreement-section__header">
+          <span class="agreement-section__index">09</span>
+          <h2 id="agreement-clause-9" class="title-2">No Professional Relationship and No Advice</h2>
+        </div>
+        <p>Nothing on the website constitutes legal advice, cybersecurity consulting, incident response services, managed security services, engineering assurance, procurement advice, compliance advice, academic supervision, or any other form of professional service. The website is not a substitute for obtaining advice from a qualified professional who has considered your specific facts and circumstances.</p>
+        <p>No access to the website, no communication through the website, no social media interaction, no reference to the operator's work, and no passive receipt of Content creates any professional-client, fiduciary, advisory, agency, partnership, employment, or confidential relationship between you and the operator.</p>
+        <p>You must not state, imply, or represent to any third party that the operator has approved, supervised, reviewed, authorised, or supported your project, use case, testing activity, publication, or operational conduct unless the operator has expressly agreed in writing.</p>
+      </section>
+
+      <section class="agreement-section" id="license" aria-labelledby="agreement-clause-10">
+        <div class="agreement-section__header">
+          <span class="agreement-section__index">10</span>
+          <h2 id="agreement-clause-10" class="title-2">Intellectual Property and Limited Permission to Access</h2>
+        </div>
+        <p>Except to the extent otherwise indicated, the website layout, text, selection, arrangement, editorial structure, original commentary, and original materials published on the website are protected by intellectual property law and remain the property of the operator or relevant rights holder.</p>
+        <p>Subject to your strict compliance with this Agreement, you are granted a limited, revocable, non-exclusive, non-transferable permission to access and read the website for lawful personal, educational, research, and commentary purposes. No broader licence is granted by implication, estoppel, necessity, or otherwise.</p>
+        <p>You must not remove attribution, misrepresent authorship, frame the website in a misleading manner, mirror substantial parts of the website, create derivative compilations that falsely imply origin or endorsement, or use the Content in a way that is deceptive, defamatory, unlawful, or inconsistent with the educational purpose stated in this Agreement.</p>
+      </section>
+
+      <section class="agreement-section" id="enforcement" aria-labelledby="agreement-clause-11">
+        <div class="agreement-section__header">
+          <span class="agreement-section__index">11</span>
+          <h2 id="agreement-clause-11" class="title-2">Monitoring, Restriction, Suspension, and Removal</h2>
+        </div>
+        <p>The operator may, but is not obliged to, monitor use of the website, investigate suspected misuse, restrict access, alter availability, remove content, refuse requests, preserve records, or take any other step reasonably considered appropriate to protect the operator's legal position, safety, systems, reputation, or legitimate interests.</p>
+        <p>The operator may suspend or terminate access, block specific users, geographies, addresses, agents, or requests, or remove materials without notice where the operator suspects misuse, legal risk, policy conflict, reputational risk, or operational concern. No such action shall create liability to you for loss of access, reliance, or opportunity.</p>
+        <p>The operator may also cooperate with lawful requests from courts, regulators, law enforcement bodies, hosting providers, registrars, platforms, or other competent authorities where the operator considers such cooperation appropriate or necessary.</p>
+      </section>
+
+      <section class="agreement-section" id="indemnification" aria-labelledby="agreement-clause-12">
+        <div class="agreement-section__header">
+          <span class="agreement-section__index">12</span>
+          <h2 id="agreement-clause-12" class="title-2">Indemnification, Defence, and Reimbursement</h2>
+        </div>
+        <p>You agree to indemnify, defend, and hold harmless the operator, {siteConfig.title}, and any affiliate, successor, representative, contractor, or contributor associated with the website from and against any and all claims, demands, allegations, proceedings, investigations, liabilities, damages, judgments, settlements, penalties, losses, costs, and expenses, including reasonable legal fees and disbursements, arising out of or related to:</p>
+        <ol class="agreement-list agreement-list--alpha">
+          <li>your access to, use of, misuse of, or reliance upon any Content;</li>
+          <li>your breach of this Agreement;</li>
+          <li>your breach of any law, regulation, code, policy, order, or third-party right;</li>
+          <li>any allegation that your conduct, project, deployment, testing activity, publication, or operational use was connected with, encouraged by, or derived from the website;</li>
+          <li>any claim by a third party resulting from your actions after obtaining or referring to Content from the website.</li>
+        </ol>
+        <p>This indemnity includes an obligation to reimburse the operator on demand for reasonable legal and professional costs incurred in responding to a claim, inquiry, threat, complaint, subpoena, or investigation associated with your conduct. The operator may, at its election, control the defence or settlement of any matter subject to indemnity, without relieving you of your reimbursement obligations.</p>
+        <p>This clause survives suspension, termination, or cessation of your access to the website.</p>
+      </section>
+
+      <section class="agreement-section" id="liquidated-damages" aria-labelledby="agreement-clause-13">
+        <div class="agreement-section__header">
+          <span class="agreement-section__index">13</span>
+          <h2 id="agreement-clause-13" class="title-2">Liquidated Damages and Equitable Relief</h2>
+        </div>
+        <p>You acknowledge that misuse of Content obtained from the website may result in harms that are difficult to quantify precisely, including reputational damage, unwanted association with unlawful activity, business disruption, personal distress, defensive costs, response costs, and loss of opportunities. You further acknowledge that, where a misuse of Content obtained from this website results in legal action, investigation, regulatory inquiry, or public association that damages the operator's reputation, business, or personal standing, a genuine pre-estimate of loss may be difficult to calculate with precision at the time of breach.</p>
+        <p>Accordingly, in the circumstances described above, and to the extent permitted by applicable law, you agree to pay liquidated damages in the amount of AUD $[5000-15000] per incident. The parties acknowledge that this amount is intended as a genuine pre-estimate of likely loss and administrative burden, and not as a penalty.</p>
+        <p>You further agree that monetary damages alone may be inadequate in certain cases and that the operator shall be entitled, where permitted by law, to seek injunctive relief, declaratory relief, specific performance, protective orders, takedown relief, or other equitable remedies without prejudice to any other rights or remedies available.</p>
+      </section>
+
+      <section class="agreement-section" id="limitation" aria-labelledby="agreement-clause-14">
+        <div class="agreement-section__header">
+          <span class="agreement-section__index">14</span>
+          <h2 id="agreement-clause-14" class="title-2">Limitation of Liability</h2>
+        </div>
+        <p>To the maximum extent permitted by applicable law, the operator shall not be liable for any direct, indirect, incidental, consequential, special, punitive, or exemplary loss or damage arising out of or in connection with the website or any Content, including loss of data, loss of profits, loss of business, system compromise, business interruption, reputational loss, procurement of substitute services, regulatory exposure, or third-party liability.</p>
+        <p>This limitation applies whether the claim is framed in contract, tort, negligence, statute, equity, restitution, indemnity, misrepresentation, or otherwise, and whether or not the operator was advised of the possibility of such loss. If any jurisdiction does not permit exclusion of certain liabilities, the operator's liability is limited to the minimum amount permitted by law.</p>
+        <p>Nothing in this Agreement excludes liability that cannot lawfully be excluded under applicable law, but any such non-excludable liability is limited to the narrowest extent permitted by law.</p>
+      </section>
+
+      <section class="agreement-section" id="governing-law" aria-labelledby="agreement-clause-15">
+        <div class="agreement-section__header">
+          <span class="agreement-section__index">15</span>
+          <h2 id="agreement-clause-15" class="title-2">Governing Law and Jurisdiction</h2>
+        </div>
+        <p>This Agreement shall be governed by and construed in accordance with the laws of [ACT/QLD], Australia, without regard to conflict of law principles to the extent such principles would result in the application of another law.</p>
+        <p>You irrevocably submit to the exclusive jurisdiction of the courts of [ACT/QLD], and of any court competent to hear an appeal from those courts, in relation to any dispute, claim, controversy, proceeding, or matter arising out of or connected with this Agreement, the website, or any Content.</p>
+        <p>You waive, to the fullest extent permitted by law, any objection based on inconvenient forum, lack of personal jurisdiction, venue, or similar doctrine in relation to proceedings properly brought in that forum.</p>
+      </section>
+
+      <section class="agreement-section" id="general" aria-labelledby="agreement-clause-16">
+        <div class="agreement-section__header">
+          <span class="agreement-section__index">16</span>
+          <h2 id="agreement-clause-16" class="title-2">General Provisions</h2>
+        </div>
+        <p>If any provision of this Agreement is held invalid, illegal, or unenforceable, that provision shall be severed or read down to the minimum extent necessary, and the remainder of the Agreement shall continue in full force and effect. No waiver of any provision shall be effective unless made expressly and in writing, and no failure or delay in exercising a right shall operate as a waiver.</p>
+        <p>This Agreement constitutes the entire understanding between you and the operator in relation to access to and use of the website, superseding any prior or contemporaneous communication, expectation, or representation on that subject matter to the extent permitted by law. The operator may amend this Agreement from time to time by publishing an updated version on the website, and your continued use after publication constitutes acceptance of the amended version.</p>
+        <p>You may not assign, transfer, sublicense, or otherwise dispose of any claimed right of access or benefit under this Agreement without prior written consent. The operator may assign or transfer rights, obligations, or interests arising under this Agreement as part of any restructuring, transfer, succession, or protective arrangement.</p>
+      </section>
+    </div>
+  </section>
+</BaseLayout>
