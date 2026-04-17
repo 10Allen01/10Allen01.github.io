@@ -13,6 +13,10 @@ const year = new Date().getFullYear();
     <div class="site-footer__actions">
       <a class="btn btn-primary site-footer__agreement" href={withBase('/agreement/')}>Full Agreement</a>
 
+      {siteConfig.alternateAccess.onion.enabled && (
+        <a class="btn btn-outline site-footer__onion" href={siteConfig.alternateAccess.onion.href}>{siteConfig.alternateAccess.onion.label}</a>
+      )}
+
       <div class="site-footer__links">
         {siteConfig.socialLinks.map((link) => (
           <a href={link.href}>

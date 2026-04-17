@@ -28,6 +28,20 @@ const imageUrl = image
   : undefined;
 const buildId = (process.env.GITHUB_SHA || process.env.VERCEL_GIT_COMMIT_SHA || process.env.COMMIT_REF || 'dev').slice(0, 12);
 const versionUrl = withBase('/version.json');
+const cspPolicy = [
+  "default-src 'self'",
+  "base-uri 'self'",
+  "object-src 'none'",
+  "form-action 'self'",
+  "script-src 'self' 'unsafe-inline'",
+  "style-src 'self' 'unsafe-inline'",
+  "img-src 'self' https: data: blob:",
+  "font-src 'self' data:",
+  "connect-src 'self' https://api.github.com",
+  "media-src 'self' data: blob:",
+  "manifest-src 'self'",
+  'upgrade-insecure-requests'
+].join('; ');
 ---
 
 <!doctype html>
@@ -40,6 +54,8 @@ const versionUrl = withBase('/version.json');
     <title>{pageTitle}</title>
     <meta name="description" content={description} />
     <meta name="theme-color" content="#f9fbff" />
+    <meta name="referrer" content="no-referrer" />
+    <meta http-equiv="Content-Security-Policy" content={cspPolicy} />
     <link rel="canonical" href={canonicalUrl} />
     <link rel="icon" type="image/svg+xml" href={withBase('/favicon.svg')} />
     <link rel="manifest" href={withBase('/site.webmanifest')} />
@@ -53,11 +69,100 @@ const versionUrl = withBase('/version.json');
     <meta name="twitter:title" content={pageTitle} />
     <meta name="twitter:description" content={description} />
     {imageUrl && <meta name="twitter:image" content={imageUrl} />}
+    <script is:inline>
+      (function () {
+        const trackingKeys = new Set(['fbclid', 'gclid', 'dclid', 'msclkid', 'mc_cid', 'mc_eid', 'ref', 'ref_src', '_ga']);
+        const trackingPrefixes = ['utm_'];
+
+        try {
+          const url = new URL(window.location.href);
+          let changed = false;
+
+          Array.from(url.searchParams.keys()).forEach((key) => {
+            if (trackingKeys.has(key) || trackingPrefixes.some((prefix) => key.startsWith(prefix))) {
+              url.searchParams.delete(key);
+              changed = true;
+            }
+          });
+
+          if (changed) {
+            window.history.replaceState(window.history.state, '', url.toString());
+          }
+        } catch {}
+
+        window.__allenPrivacyReady = (async () => {
+          if (!window.crypto || !window.crypto.subtle || typeof TextEncoder !== 'function') {
+            return null;
+          }
+
+          const key = await window.crypto.subtle.generateKey(
+            { name: 'AES-GCM', length: 256 },
+            false,
+            ['encrypt', 'decrypt']
+          );
+
+          const encoder = new TextEncoder();
+          const toBase64 = (bytes) => {
+            let binary = '';
+            for (let index = 0; index < bytes.length; index += 1) {
+              binary += String.fromCharCode(bytes[index]);
+            }
+            return window.btoa(binary);
+          };
+
+          window.__allenPrivacyContext = {
+            algorithm: 'AES-GCM-256',
+            createdAt: Date.now(),
+            sealText: async (value) => {
+              const iv = window.crypto.getRandomValues(new Uint8Array(12));
+              const sealed = await window.crypto.subtle.encrypt(
+                { name: 'AES-GCM', iv },
+                key,
+                encoder.encode(String(value))
+              );
+
+              return {
+                iv: toBase64(iv),
+                data: toBase64(new Uint8Array(sealed))
+              };
+            }
+          };
+
+          return window.__allenPrivacyContext;
+        })().catch(() => null);
+      })();
+    </script>
     <script is:inline define:vars={{ buildId, versionUrl }}>
       (function () {
         if (buildId === 'dev') return;
 
         const storageKey = 'allen.site.latestBuild';
+        const readStoredBuild = () => {
+          try {
+            const sessionValue = sessionStorage.getItem(storageKey);
+            if (sessionValue) return sessionValue;
+          } catch {}
+
+          try {
+            const legacyValue = localStorage.getItem(storageKey);
+            if (!legacyValue) return null;
+            sessionStorage.setItem(storageKey, legacyValue);
+            localStorage.removeItem(storageKey);
+            return legacyValue;
+          } catch {
+            return null;
+          }
+        };
+
+        const writeStoredBuild = (value) => {
+          try {
+            sessionStorage.setItem(storageKey, value);
+          } catch {}
+
+          try {
+            localStorage.removeItem(storageKey);
+          } catch {}
+        };
 
         try {
           const url = new URL(window.location.href);
@@ -77,9 +182,7 @@ const versionUrl = withBase('/version.json');
               const latestBuild = payload && typeof payload.buildId === 'string' ? payload.buildId : '';
               if (!latestBuild) return;
 
-              try {
-                localStorage.setItem(storageKey, latestBuild);
-              } catch {}
+              writeStoredBuild(latestBuild);
 
               if (latestBuild === buildId) {
                 return;
@@ -90,12 +193,12 @@ const versionUrl = withBase('/version.json');
               window.location.replace(nextUrl.toString());
             })
             .catch(function () {
-              try {
-                const latestBuild = localStorage.getItem(storageKey);
-                if (!latestBuild || latestBuild === buildId) {
-                  return;
-                }
+              const latestBuild = readStoredBuild();
+              if (!latestBuild || latestBuild === buildId) {
+                return;
+              }
 
+              try {
                 const nextUrl = new URL(window.location.href);
                 nextUrl.searchParams.set('v', latestBuild);
                 window.location.replace(nextUrl.toString());
@@ -193,6 +296,42 @@ const versionUrl = withBase('/version.json');
     </main>
     <SiteFooter />
     <BackgroundMusic />
+    <script is:inline>
+      (function () {
+        const hardenExternalLinks = () => {
+          document.querySelectorAll('a[href]').forEach((anchor) => {
+            if (!(anchor instanceof HTMLAnchorElement)) return;
+
+            let url;
+            try {
+              url = new URL(anchor.href, window.location.href);
+            } catch {
+              return;
+            }
+
+            if (!/^https?:$/.test(url.protocol) || url.origin === window.location.origin) {
+              return;
+            }
+
+            const rel = new Set((anchor.getAttribute('rel') || '').split(/\s+/).filter(Boolean));
+            rel.add('noopener');
+            rel.add('noreferrer');
+            rel.add('external');
+            anchor.setAttribute('rel', Array.from(rel).join(' '));
+            anchor.setAttribute('referrerpolicy', 'no-referrer');
+          });
+        };
+
+        if (window.__allenExternalLinkHardenerBound !== true) {
+          document.addEventListener('astro:page-load', hardenExternalLinks);
+          document.addEventListener('astro:after-swap', hardenExternalLinks);
+          window.addEventListener('pageshow', hardenExternalLinks);
+          window.__allenExternalLinkHardenerBound = true;
+        }
+
+        hardenExternalLinks();
+      })();
+    </script>
     <script is:inline>
       (function () {
         const storageKey = 'allen.site.visitShieldAccepted';
@@ -306,6 +445,14 @@ const versionUrl = withBase('/version.json');
         const navKey = 'allen.site.internalNav';
         const navMarkerTtlMs = 2500;
         const shouldAnimate = window.__allenEntryLoaderShouldAnimate === true;
+        const privacyReady = window.__allenPrivacyReady;
+        const waitForPrivacy = () => {
+          if (!privacyReady || typeof privacyReady.then !== 'function') {
+            return Promise.resolve();
+          }
+
+          return privacyReady.catch(() => null).then(() => undefined);
+        };
 
         const clearInternalNavigation = () => {
           try {
@@ -400,12 +547,16 @@ const versionUrl = withBase('/version.json');
         });
 
         if (document.readyState === 'complete') {
-          window.setTimeout(finish, 1850);
+          waitForPrivacy().then(() => {
+            window.setTimeout(finish, 1850);
+          });
         } else {
           window.addEventListener(
             'load',
             () => {
-              window.setTimeout(finish, 1850);
+              waitForPrivacy().then(() => {
+                window.setTimeout(finish, 1850);
+              });
             },
             { once: true }
           );

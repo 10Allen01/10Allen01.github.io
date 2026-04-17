@@ -1,6 +1,9 @@
 /** YouTube watch URL ?v=… → videoId. Titles show on the site player (edit freely). */
 export type BackgroundMusicTrack = { title: string; src: string };
 
+const onionHref = (import.meta.env.PUBLIC_ONION_URL ?? '').trim();
+const onionLabel = (import.meta.env.PUBLIC_ONION_LABEL ?? 'Onion Access').trim() || 'Onion Access';
+
 /** Bottom bar player: hidden YouTube engine + on-site controls. Set enabled: false to remove. */
 export type BackgroundMusicConfig =
   | { enabled: false }
@@ -18,6 +21,13 @@ export const siteConfig = {
   description: 'A personal archive focusing on AI, Cyber Security, Programming, and practical tools.',
   author: 'Allen',
   location: 'Global',
+  alternateAccess: {
+    onion: {
+      enabled: onionHref.length > 0,
+      label: onionLabel,
+      href: onionHref || 'http://replace-with-your-onion-address.onion'
+    }
+  },
   hero: {
     eyebrow: 'Welcome',
     title: 'Code, Security, and Life.',

@@ -6,11 +6,6 @@ on:
       - main
   workflow_dispatch:
 
-permissions:
-  contents: read
-  pages: write
-  id-token: write
-
 concurrency:
   group: pages
   cancel-in-progress: true
@@ -35,6 +30,9 @@ jobs:
         run: npm install
 
       - name: Build site
+        env:
+          PUBLIC_ONION_URL: ${{ vars.PUBLIC_ONION_URL }}
+          PUBLIC_ONION_LABEL: ${{ vars.PUBLIC_ONION_LABEL }}
         run: npm run build
 
       - name: Upload Pages artifact
@@ -48,6 +46,9 @@ jobs:
     environment:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
+    permissions:
+      pages: write
+      id-token: write
     steps:
       - name: Deploy to GitHub Pages
         id: deployment

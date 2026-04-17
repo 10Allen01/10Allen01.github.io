@@ -237,9 +237,20 @@ const showTrackNav = bm.tracks.length > 1;
 
     function readStore() {
       try {
-        const raw = localStorage.getItem(LS);
-        if (!raw) return null;
-        return JSON.parse(raw);
+        const sessionValue = sessionStorage.getItem(LS);
+        if (sessionValue) {
+          return JSON.parse(sessionValue);
+        }
+      } catch {
+        /* ignore */
+      }
+
+      try {
+        const legacyValue = localStorage.getItem(LS);
+        if (!legacyValue) return null;
+        sessionStorage.setItem(LS, legacyValue);
+        localStorage.removeItem(LS);
+        return JSON.parse(legacyValue);
       } catch {
         return null;
       }
@@ -256,7 +267,13 @@ const showTrackNav = bm.tracks.length > 1;
           at: Date.now(),
           ...overrides
         };
-        localStorage.setItem(LS, JSON.stringify(payload));
+        sessionStorage.setItem(LS, JSON.stringify(payload));
+      } catch {
+        /* ignore */
+      }
+
+      try {
+        localStorage.removeItem(LS);
       } catch {
         /* ignore */
       }
