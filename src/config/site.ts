@@ -1,6 +1,7 @@
 /** YouTube watch URL ?v=… → videoId. Titles show on the site player (edit freely). */
 export type BackgroundMusicTrack = { title: string; src: string };
 
+const defaultOnionHref = 'http://4aswfhakect7x2uvbcdhrpsghlnbv7d6w4n2hj7up3275336ymnimfad.onion';
 const onionHref = (import.meta.env.PUBLIC_ONION_URL ?? '').trim();
 const onionLabel = (import.meta.env.PUBLIC_ONION_LABEL ?? 'Onion Access').trim() || 'Onion Access';
 
@@ -23,9 +24,9 @@ export const siteConfig = {
   location: 'Global',
   alternateAccess: {
     onion: {
-      enabled: onionHref.length > 0,
+      enabled: (onionHref || defaultOnionHref).length > 0,
       label: onionLabel,
-      href: onionHref || 'http://replace-with-your-onion-address.onion'
+      href: onionHref || defaultOnionHref
     }
   },
   hero: {

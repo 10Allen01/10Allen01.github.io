@@ -245,6 +245,15 @@ You still need to manage:
 - admin access security
 - local machine security if self-hosting from home
 
+## Windows local onion workflow
+
+If you want to generate and run your own `.onion` address directly on Windows, use the scripts under `deploy/onion/windows/` after Tor is installed. They are designed to:
+
+- build and serve `dist/` locally on `127.0.0.1:8080`
+- generate a Windows `torrc`
+- start Tor against that config
+- print the generated `.onion` hostname once available
+
 ## Notes on robustness
 
 This project is designed to stay maintainable over time:
