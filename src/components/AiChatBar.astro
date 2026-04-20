@@ -213,7 +213,15 @@ const aiConfig = siteConfig.aiAssistant;
 
     const applyModels = (items) => {
       modelSelect.innerHTML = '';
-      const uniqueIds = Array.from(new Set(items.map((item) => item.id).filter(Boolean))).sort((a, b) => a.localeCompare(b));
+      const uniqueIds = [];
+      const seenIds = new Set();
+
+      items.forEach((item) => {
+        const id = String(item?.id || '').trim();
+        if (!id || seenIds.has(id)) return;
+        seenIds.add(id);
+        uniqueIds.push(id);
+      });
 
       uniqueIds.forEach((id) => {
         const option = document.createElement('option');

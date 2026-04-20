@@ -90,6 +90,10 @@ const chatModelExcludePatterns = [
 ];
 
 const chatModelPriorityPatterns = [/instruct/i, /chat/i, /assistant/i, /coder/i, /reason/i, /r1/i, /it$/i];
+const modelProbeCache = new Map();
+const modelProbeTtlMs = 1000 * 60 * 30;
+const modelProbeConcurrency = 6;
+const modelProbeCandidateLimit = 40;
 
 const ensureOriginAllowed = (request, env) => {
   const allowedOrigins = getAllowedOrigins(env);
@@ -123,6 +127,87 @@ const compareModelPriority = (left, right) => {
     return leftPriority - rightPriority;
   }
   return leftId.localeCompare(rightId);
+};
+
+const readCachedProbe = (id) => {
+  const cached = modelProbeCache.get(id);
+  if (!cached) return null;
+  if (Date.now() - cached.timestamp > modelProbeTtlMs) {
+    modelProbeCache.delete(id);
+    return null;
+  }
+  return cached.ok;
+};
+
+const writeCachedProbe = (id, ok) => {
+  modelProbeCache.set(id, {
+    ok,
+    timestamp: Date.now()
+  });
+};
+
+const probeChatModel = async (env, modelId) => {
+  const cached = readCachedProbe(modelId);
+  if (cached !== null) {
+    return cached;
+  }
+
+  try {
+    const upstream = await fetch(`${getBaseUrl(env)}/chat/completions`, {
+      method: 'POST',
+      headers: {
+        ...getApiHeaders(env),
+        'Content-Type': 'application/json',
+        Accept: 'text/event-stream'
+      },
+      body: JSON.stringify({
+        model: modelId,
+        messages: [{ role: 'user', content: 'Reply with OK only.' }],
+        stream: true,
+        max_tokens: 8,
+        temperature: 0
+      })
+    });
+
+    const ok = upstream.ok;
+    if (ok) {
+      await upstream.body?.cancel();
+    } else {
+      await upstream.text();
+    }
+
+    writeCachedProbe(modelId, ok);
+    return ok;
+  } catch {
+    writeCachedProbe(modelId, false);
+    return false;
+  }
+};
+
+const collectAvailableChatModels = async (env, models) => {
+  const candidates = models
+    .filter((item) => isLikelyChatModel(item.id))
+    .sort(compareModelPriority)
+    .slice(0, modelProbeCandidateLimit);
+  const available = [];
+
+  for (let index = 0; index < candidates.length; index += modelProbeConcurrency) {
+    const batch = candidates.slice(index, index + modelProbeConcurrency);
+    const results = await Promise.all(
+      batch.map(async (model) => ({
+        model,
+        ok: await probeChatModel(env, model.id)
+      }))
+    );
+
+    for (const result of results) {
+      if (result.ok) {
+        available.push(result.model);
+      }
+    }
+  }
+
+  return available;
 };
 
 const parseUpstreamError = async (response) => {
@@ -191,9 +276,7 @@ const normalizeModels = (payload) => {
         created: Number.isFinite(item?.created) ? item.created : undefined
       };
     })
-    .filter((item) => item.id)
-    .filter((item) => isLikelyChatModel(item.id))
-    .sort(compareModelPriority);
+    .filter((item) => item.id);
 };
 
 const normalizeMessages = (messages) =>
@@ -245,7 +328,9 @@ export default {
       }
 
       const payload = await upstream.json();
-      return withCors(jsonResponse({ data: normalizeModels(payload) }), request, env);
+      const normalized = normalizeModels(payload);
+      const availableModels = await collectAvailableChatModels(env, normalized);
+      return withCors(jsonResponse({ data: availableModels }), request, env);
     }
 
     if (request.method === 'POST' && pathname === '/chat') {
