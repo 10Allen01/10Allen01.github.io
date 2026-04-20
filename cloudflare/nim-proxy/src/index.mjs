@@ -68,6 +68,29 @@ const errorResponse = (message, status = 400) =>
     { status }
   );
 
+const chatModelExcludePatterns = [
+  /embed/i,
+  /embedding/i,
+  /rerank/i,
+  /rank/i,
+  /reward/i,
+  /moderation/i,
+  /guard/i,
+  /safety/i,
+  /ocr/i,
+  /asr/i,
+  /transcribe/i,
+  /tts/i,
+  /speech/i,
+  /audio/i,
+  /clip/i,
+  /vision/i,
+  /vlm/i,
+  /image/i
+];
+
+const chatModelPriorityPatterns = [/instruct/i, /chat/i, /assistant/i, /coder/i, /reason/i, /r1/i, /it$/i];
+
 const ensureOriginAllowed = (request, env) => {
   const allowedOrigins = getAllowedOrigins(env);
   const origin = request.headers.get('Origin') || '';
@@ -83,6 +106,74 @@ const getApiHeaders = (env) => ({
   Authorization: `Bearer ${env.NVIDIA_NIM_API_KEY}`,
   Accept: 'application/json'
 });
+
+const isLikelyChatModel = (id) => {
+  const value = String(id || '').trim();
+  if (!value) return false;
+  if (chatModelExcludePatterns.some((pattern) => pattern.test(value))) return false;
+  return true;
+};
+
+const compareModelPriority = (left, right) => {
+  const leftId = String(left?.id || '');
+  const rightId = String(right?.id || '');
+  const leftPriority = chatModelPriorityPatterns.some((pattern) => pattern.test(leftId)) ? 0 : 1;
+  const rightPriority = chatModelPriorityPatterns.some((pattern) => pattern.test(rightId)) ? 0 : 1;
+  if (leftPriority !== rightPriority) {
+    return leftPriority - rightPriority;
+  }
+  return leftId.localeCompare(rightId);
+};
+
+const parseUpstreamError = async (response) => {
+  const text = await response.text();
+  let payload = null;
+
+  try {
+    payload = JSON.parse(text);
+  } catch {}
+
+  return {
+    text,
+    payload,
+    status: response.status
+  };
+};
+
+const normalizedUpstreamError = async (response, fallbackMessage) => {
+  const upstream = await parseUpstreamError(response);
+  const detail =
+    upstream.payload?.error?.message ||
+    upstream.payload?.detail ||
+    upstream.payload?.title ||
+    upstream.text ||
+    fallbackMessage;
+
+  let message = fallbackMessage;
+
+  if (upstream.status === 404) {
+    message = 'This model is unavailable for chat right now.';
+  } else if (upstream.status === 401 || upstream.status === 403) {
+    message = 'The assistant is unavailable right now.';
+  } else if (upstream.status === 429) {
+    message = 'The assistant is busy right now. Please try again shortly.';
+  } else if (typeof upstream.payload?.error?.message === 'string' && upstream.payload.error.message.trim()) {
+    message = upstream.payload.error.message.trim();
+  }
+
+  return jsonResponse(
+    {
+      error: {
+        message,
+        status: upstream.status,
+        detail
+      }
+    },
+    {
+      status: upstream.status
+    }
+  );
+};
 
 const normalizeModels = (payload) => {
   const source = Array.isArray(payload?.data) ? payload.data : Array.isArray(payload) ? payload : [];
@@ -101,7 +192,8 @@ const normalizeModels = (payload) => {
       };
     })
     .filter((item) => item.id)
-    .sort((a, b) => a.id.localeCompare(b.id));
+    .filter((item) => isLikelyChatModel(item.id))
+    .sort(compareModelPriority);
 };
 
 const normalizeMessages = (messages) =>
@@ -149,17 +241,7 @@ export default {
       });
 
       if (!upstream.ok) {
-        return withCors(
-          new Response(await upstream.text(), {
-            status: upstream.status,
-            headers: {
-              'Content-Type': upstream.headers.get('Content-Type') || 'text/plain; charset=utf-8',
-              'Cache-Control': 'no-store'
-            }
-          }),
-          request,
-          env
-        );
+        return withCors(await normalizedUpstreamError(upstream, 'Unable to load models right now.'), request, env);
       }
 
       const payload = await upstream.json();
@@ -180,6 +262,10 @@ export default {
 
       if (!model) {
         return withCors(errorResponse('model is required.', 400), request, env);
+      }
+
+      if (!isLikelyChatModel(model)) {
+        return withCors(errorResponse('This model is unavailable for chat right now.', 400), request, env);
       }
 
       if (messages.length === 0) {
@@ -214,17 +300,7 @@ export default {
       });
 
       if (!upstream.ok || !upstream.body) {
-        return withCors(
-          new Response(await upstream.text(), {
-            status: upstream.status,
-            headers: {
-              'Content-Type': upstream.headers.get('Content-Type') || 'text/plain; charset=utf-8',
-              'Cache-Control': 'no-store'
-            }
-          }),
-          request,
-          env
-        );
+        return withCors(await normalizedUpstreamError(upstream, 'Reply unavailable right now. Please try another model.'), request, env);
       }
 
       return withCors(

@@ -6,7 +6,7 @@ const defaultAiProxyUrl = 'https://allen-nim-proxy.allenchatnim.workers.dev';
 const onionHref = (import.meta.env.PUBLIC_ONION_URL ?? '').trim();
 const onionLabel = (import.meta.env.PUBLIC_ONION_LABEL ?? 'Onion Access').trim() || 'Onion Access';
 const aiProxyUrl = (import.meta.env.PUBLIC_AI_PROXY_URL ?? '').trim() || defaultAiProxyUrl;
-const aiChatLabel = (import.meta.env.PUBLIC_AI_CHAT_LABEL ?? 'AI Assistant').trim() || 'AI Assistant';
+const aiChatLabel = (import.meta.env.PUBLIC_AI_CHAT_LABEL ?? 'Chat').trim() || 'Chat';
 
 /** Bottom bar player: hidden YouTube engine + on-site controls. Set enabled: false to remove. */
 export type BackgroundMusicConfig =
@@ -37,8 +37,8 @@ export const siteConfig = {
     enabled: aiProxyUrl.length > 0,
     label: aiChatLabel,
     proxyUrl: aiProxyUrl,
-    title: 'NVIDIA NIM Chat',
-    summary: 'Live model discovery with streaming responses and fast switching.'
+    title: 'Assistant',
+    summary: 'Ask anything.'
   },
   hero: {
     eyebrow: 'Welcome',

@@ -12,14 +12,13 @@ const aiConfig = siteConfig.aiAssistant;
     data-proxy-url={aiConfig.proxyUrl}
   >
     <button class="ai-chat-toggle" type="button" data-ai-chat-toggle aria-controls="ai-chat-panel" aria-expanded="false">
-      <span class="ai-chat-toggle__eyebrow">{aiConfig.label}</span>
-      <span class="ai-chat-toggle__title">{aiConfig.title}</span>
+      <span class="ai-chat-toggle__dot" aria-hidden="true"></span>
+      <span class="ai-chat-toggle__title">{aiConfig.label}</span>
     </button>
 
     <section class="ai-chat-panel" id="ai-chat-panel" data-ai-chat-panel hidden aria-label={aiConfig.title}>
       <div class="ai-chat-panel__header">
         <div class="ai-chat-panel__copy">
-          <span class="ai-chat-panel__eyebrow">{aiConfig.label}</span>
           <h2 class="ai-chat-panel__title">{aiConfig.title}</h2>
           <p class="ai-chat-panel__summary">{aiConfig.summary}</p>
         </div>
@@ -31,7 +30,7 @@ const aiConfig = siteConfig.aiAssistant;
           <span>Model</span>
           <select data-ai-chat-model></select>
         </label>
-        <button class="btn btn-outline ai-chat-panel__refresh" type="button" data-ai-chat-refresh>Refresh</button>
+        <button class="btn btn-outline ai-chat-panel__refresh" type="button" data-ai-chat-refresh>Reload</button>
       </div>
 
       <div class="ai-chat-panel__status" data-ai-chat-status>Preparing assistant…</div>
@@ -39,17 +38,17 @@ const aiConfig = siteConfig.aiAssistant;
       <div class="ai-chat-messages" data-ai-chat-messages role="log" aria-live="polite">
         <article class="ai-chat-message ai-chat-message--assistant">
           <div class="ai-chat-message__bubble">
-            Ask a question to begin. The model list is loaded dynamically from NVIDIA NIM through your relay.
+            Hi. What would you like to ask?
           </div>
         </article>
       </div>
 
       <form class="ai-chat-composer" data-ai-chat-form>
         <label class="sr-only" for="ai-chat-input">Message</label>
-        <textarea id="ai-chat-input" data-ai-chat-input rows="3" placeholder="Ask about AI, security, code, or anything else…"></textarea>
+        <textarea id="ai-chat-input" data-ai-chat-input rows="4" placeholder="Type your message…"></textarea>
         <div class="ai-chat-composer__actions">
-          <span class="ai-chat-composer__hint">Shift + Enter for newline</span>
-          <button class="btn btn-primary ai-chat-composer__submit" type="submit" data-ai-chat-submit>Send</button>
+          <span class="ai-chat-composer__hint">Enter to send</span>
+          <button class="btn btn-primary ai-chat-composer__submit" type="submit" data-ai-chat-submit>Reply</button>
         </div>
       </form>
     </section>
@@ -98,6 +97,37 @@ const aiConfig = siteConfig.aiAssistant;
       isSending: false,
       modelsLoaded: false,
       conversation: []
+    };
+
+    const friendlyErrorMessage = (message, fallback) => {
+      const value = String(message || '').trim();
+      if (!value) return fallback;
+
+      try {
+        const parsed = JSON.parse(value);
+        const payload = parsed?.error || parsed;
+        const status = Number(payload?.status);
+        const text = String(payload?.message || payload?.title || '').trim();
+
+        if (status === 404) return 'This model is unavailable right now. Please try another one.';
+        if (status === 401 || status === 403) return 'The assistant is unavailable right now.';
+        if (status === 429) return 'The assistant is busy right now. Please try again in a moment.';
+        if (text) return text;
+      } catch {}
+
+      if (/404|not found|未找到/i.test(value)) {
+        return 'This model is unavailable right now. Please try another one.';
+      }
+
+      if (/403|401|forbidden|unauthorized/i.test(value)) {
+        return 'The assistant is unavailable right now.';
+      }
+
+      if (/429|rate/i.test(value)) {
+        return 'The assistant is busy right now. Please try again in a moment.';
+      }
+
+      return fallback;
     };
 
     const setOpen = (open) => {
@@ -188,7 +218,7 @@ const aiConfig = siteConfig.aiAssistant;
     const loadModels = async () => {
       if (!enabled || state.isLoadingModels) return;
       state.isLoadingModels = true;
-      setStatus('Loading model catalog…', 'neutral');
+      setStatus('Connecting…', 'neutral');
 
       try {
         const response = await fetch(`${proxyUrl}/models`, {
@@ -198,21 +228,22 @@ const aiConfig = siteConfig.aiAssistant;
           }
         });
 
+        const payload = await response.json().catch(() => null);
         if (!response.ok) {
-          throw new Error(`Model request failed: ${response.status}`);
+          throw new Error(payload?.error?.message || `Model request failed: ${response.status}`);
         }
 
-        const payload = await response.json();
         const models = Array.isArray(payload?.data) ? payload.data : [];
         applyModels(models);
 
         if (models.length > 0) {
-          setStatus(`Ready · ${models.length} model${models.length === 1 ? '' : 's'} available`, 'success');
+          setStatus('Ready', 'success');
         } else {
-          setStatus('No selectable models were returned by the relay.', 'warning');
+          setStatus('No available models right now.', 'warning');
         }
       } catch (error) {
-        setStatus(error instanceof Error ? error.message : 'Failed to load models.', 'error');
+        const message = error instanceof Error ? error.message : '';
+        setStatus(friendlyErrorMessage(message, 'Unable to load models right now.'), 'error');
       } finally {
         state.isLoadingModels = false;
       }
@@ -291,7 +322,7 @@ const aiConfig = siteConfig.aiAssistant;
       const model = modelSelect.value.trim();
 
       if (!enabled) {
-        setStatus('The AI relay is not configured yet.', 'warning');
+        setStatus('The assistant is unavailable right now.', 'warning');
         return;
       }
 
@@ -301,7 +332,7 @@ const aiConfig = siteConfig.aiAssistant;
       }
 
       if (!model) {
-        setStatus('Choose a model before sending.', 'warning');
+        setStatus('Choose a model first.', 'warning');
         if (!state.modelsLoaded) {
           void loadModels();
         }
@@ -313,7 +344,7 @@ const aiConfig = siteConfig.aiAssistant;
       renderMessage('user', message, false);
       input.value = '';
       setBusy(true);
-      setStatus(`Streaming from ${model}…`, 'neutral');
+      setStatus('Thinking…', 'neutral');
 
       const assistantBubble = renderMessage('assistant', '', true);
       let assistantText = '';
@@ -334,11 +365,13 @@ const aiConfig = siteConfig.aiAssistant;
 
         assistantBubble.classList.remove('is-streaming');
         state.conversation.push({ role: 'assistant', content: assistantText || 'No content returned.' });
-        setStatus(`Done · ${model}`, 'success');
+        setStatus('Ready', 'success');
       } catch (error) {
         assistantBubble.classList.remove('is-streaming');
-        assistantBubble.innerHTML = escapeHtml(assistantText || 'The reply could not be completed.').replace(/\n/g, '<br />');
-        setStatus(error instanceof Error ? error.message : 'Chat failed.', 'error');
+        const fallbackReply = assistantText || 'Sorry, that reply could not be completed right now.';
+        assistantBubble.innerHTML = escapeHtml(fallbackReply).replace(/\n/g, '<br />');
+        const message = error instanceof Error ? error.message : '';
+        setStatus(friendlyErrorMessage(message, 'Reply unavailable right now. Please try another model.'), 'error');
       } finally {
         setBusy(false);
         input.focus();
@@ -360,7 +393,7 @@ const aiConfig = siteConfig.aiAssistant;
     modelSelect.addEventListener('change', () => {
       if (modelSelect.value) {
         writeStoredModel(modelSelect.value);
-        setStatus(`Selected ${modelSelect.value}`, 'neutral');
+        setStatus('Ready', 'neutral');
       }
     });
 
@@ -382,10 +415,10 @@ const aiConfig = siteConfig.aiAssistant;
 
     if (enabled) {
       setBusy(false);
-      setStatus('Open the panel to load available models.', 'neutral');
+      setStatus('Ready', 'neutral');
     } else {
       setBusy(true);
-      setStatus('The AI relay is not configured yet. Deploy the Cloudflare Worker and set PUBLIC_AI_PROXY_URL.', 'warning');
+      setStatus('The assistant is unavailable right now.', 'warning');
     }
   })();
 </script>
