@@ -45,10 +45,10 @@ const aiConfig = siteConfig.aiAssistant;
 
       <form class="ai-chat-composer" data-ai-chat-form>
         <label class="sr-only" for="ai-chat-input">Message</label>
-        <textarea id="ai-chat-input" data-ai-chat-input rows="4" placeholder="Type your message…"></textarea>
+        <textarea id="ai-chat-input" data-ai-chat-input rows="3" placeholder="Type your message…"></textarea>
         <div class="ai-chat-composer__actions">
           <span class="ai-chat-composer__hint">Enter to send</span>
-          <button class="btn btn-primary ai-chat-composer__submit" type="submit" data-ai-chat-submit>Reply</button>
+          <button class="btn btn-primary ai-chat-composer__submit" type="submit" data-ai-chat-submit>Send</button>
         </div>
       </form>
     </section>
@@ -128,6 +128,22 @@ const aiConfig = siteConfig.aiAssistant;
       }
 
       return fallback;
+    };
+
+    const scrollMessagesBy = (deltaY) => {
+      if (messagesRoot.scrollHeight <= messagesRoot.clientHeight) {
+        return;
+      }
+
+      const maxScrollTop = Math.max(0, messagesRoot.scrollHeight - messagesRoot.clientHeight);
+      const nextScrollTop = Math.max(0, Math.min(maxScrollTop, messagesRoot.scrollTop + deltaY));
+      messagesRoot.scrollTop = nextScrollTop;
+    };
+
+    const closePanel = () => {
+      if (!state.isOpen) return;
+      setOpen(false);
+      window.setTimeout(() => toggle.focus(), 20);
     };
 
     const setOpen = (open) => {
@@ -379,11 +395,48 @@ const aiConfig = siteConfig.aiAssistant;
     };
 
     toggle.addEventListener('click', () => {
-      setOpen(!state.isOpen);
+      if (state.isOpen) {
+        closePanel();
+        return;
+      }
+
+      setOpen(true);
     });
 
     closeButton.addEventListener('click', () => {
-      setOpen(false);
+      closePanel();
+    });
+
+    panel.addEventListener(
+      'wheel',
+      (event) => {
+        if (!state.isOpen || event.ctrlKey) return;
+
+        const target = event.target;
+        if (target === input || target === modelSelect) {
+          return;
+        }
+
+        event.preventDefault();
+        scrollMessagesBy(event.deltaY);
+      },
+      { passive: false }
+    );
+
+    document.addEventListener('pointerdown', (event) => {
+      if (!state.isOpen) return;
+
+      const target = event.target;
+      if (!(target instanceof Node)) return;
+      if (panel.contains(target) || toggle.contains(target)) return;
+
+      closePanel();
+    });
+
+    document.addEventListener('keydown', (event) => {
+      if (event.key !== 'Escape' || !state.isOpen) return;
+      event.preventDefault();
+      closePanel();
     });
 
     refreshButton.addEventListener('click', () => {
