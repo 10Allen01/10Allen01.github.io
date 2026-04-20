@@ -1,6 +1,7 @@
 ---
 import '../styles/global.css';
 import { ViewTransitions } from 'astro:transitions';
+import AiChatBar from '../components/AiChatBar.astro';
 import BackgroundMusic from '../components/BackgroundMusic.astro';
 import SiteFooter from '../components/SiteFooter.astro';
 import SiteHeader from '../components/SiteHeader.astro';
@@ -28,6 +29,17 @@ const imageUrl = image
   : undefined;
 const buildId = (process.env.GITHUB_SHA || process.env.VERCEL_GIT_COMMIT_SHA || process.env.COMMIT_REF || 'dev').slice(0, 12);
 const versionUrl = withBase('/version.json');
+let aiProxyOrigin = '';
+
+if (siteConfig.aiAssistant.enabled) {
+  try {
+    aiProxyOrigin = new URL(siteConfig.aiAssistant.proxyUrl).origin;
+  } catch {
+    aiProxyOrigin = '';
+  }
+}
+
+const connectSources = ["'self'", 'https://api.github.com', aiProxyOrigin].filter(Boolean).join(' ');
 const cspPolicy = [
   "default-src 'self'",
   "base-uri 'self'",
@@ -37,7 +49,7 @@ const cspPolicy = [
   "style-src 'self' 'unsafe-inline'",
   "img-src 'self' https: data: blob:",
   "font-src 'self' data:",
-  "connect-src 'self' https://api.github.com",
+  `connect-src ${connectSources}`,
   "media-src 'self' data: blob:",
   "manifest-src 'self'",
   'upgrade-insecure-requests'
@@ -295,6 +307,7 @@ const cspPolicy = [
       <slot />
     </main>
     <SiteFooter />
+    <AiChatBar />
     <BackgroundMusic />
     <script is:inline>
       (function () {

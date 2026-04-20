@@ -7,3 +7,5 @@ dist
 Thumbs.db
 .env
 deploy/onion/windows/runtime/
+cloudflare/nim-proxy/.dev.vars
+src/pages/Untitled-4.txt

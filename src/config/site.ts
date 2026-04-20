@@ -2,8 +2,11 @@
 export type BackgroundMusicTrack = { title: string; src: string };
 
 const defaultOnionHref = 'http://4aswfhakect7x2uvbcdhrpsghlnbv7d6w4n2hj7up3275336ymnimfad.onion';
+const defaultAiProxyUrl = 'https://allen-nim-proxy.allenchatnim.workers.dev';
 const onionHref = (import.meta.env.PUBLIC_ONION_URL ?? '').trim();
 const onionLabel = (import.meta.env.PUBLIC_ONION_LABEL ?? 'Onion Access').trim() || 'Onion Access';
+const aiProxyUrl = (import.meta.env.PUBLIC_AI_PROXY_URL ?? '').trim() || defaultAiProxyUrl;
+const aiChatLabel = (import.meta.env.PUBLIC_AI_CHAT_LABEL ?? 'AI Assistant').trim() || 'AI Assistant';
 
 /** Bottom bar player: hidden YouTube engine + on-site controls. Set enabled: false to remove. */
 export type BackgroundMusicConfig =
@@ -28,6 +31,14 @@ export const siteConfig = {
       label: onionLabel,
       href: onionHref || defaultOnionHref
     }
+  },
+  aiAssistant: {
+    visible: true,
+    enabled: aiProxyUrl.length > 0,
+    label: aiChatLabel,
+    proxyUrl: aiProxyUrl,
+    title: 'NVIDIA NIM Chat',
+    summary: 'Live model discovery with streaming responses and fast switching.'
   },
   hero: {
     eyebrow: 'Welcome',

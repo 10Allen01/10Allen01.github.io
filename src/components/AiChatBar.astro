@@ -1,0 +1,391 @@
+---
+import { siteConfig } from '../config/site';
+
+const aiConfig = siteConfig.aiAssistant;
+---
+
+{aiConfig.visible && (
+  <div
+    class="ai-chat-shell"
+    data-ai-chat-shell
+    data-enabled={aiConfig.enabled ? '1' : '0'}
+    data-proxy-url={aiConfig.proxyUrl}
+  >
+    <button class="ai-chat-toggle" type="button" data-ai-chat-toggle aria-controls="ai-chat-panel" aria-expanded="false">
+      <span class="ai-chat-toggle__eyebrow">{aiConfig.label}</span>
+      <span class="ai-chat-toggle__title">{aiConfig.title}</span>
+    </button>
+
+    <section class="ai-chat-panel" id="ai-chat-panel" data-ai-chat-panel hidden aria-label={aiConfig.title}>
+      <div class="ai-chat-panel__header">
+        <div class="ai-chat-panel__copy">
+          <span class="ai-chat-panel__eyebrow">{aiConfig.label}</span>
+          <h2 class="ai-chat-panel__title">{aiConfig.title}</h2>
+          <p class="ai-chat-panel__summary">{aiConfig.summary}</p>
+        </div>
+        <button class="ai-chat-panel__close" type="button" data-ai-chat-close aria-label="Close AI chat">×</button>
+      </div>
+
+      <div class="ai-chat-panel__controls">
+        <label class="ai-chat-panel__field">
+          <span>Model</span>
+          <select data-ai-chat-model></select>
+        </label>
+        <button class="btn btn-outline ai-chat-panel__refresh" type="button" data-ai-chat-refresh>Refresh</button>
+      </div>
+
+      <div class="ai-chat-panel__status" data-ai-chat-status>Preparing assistant…</div>
+
+      <div class="ai-chat-messages" data-ai-chat-messages role="log" aria-live="polite">
+        <article class="ai-chat-message ai-chat-message--assistant">
+          <div class="ai-chat-message__bubble">
+            Ask a question to begin. The model list is loaded dynamically from NVIDIA NIM through your relay.
+          </div>
+        </article>
+      </div>
+
+      <form class="ai-chat-composer" data-ai-chat-form>
+        <label class="sr-only" for="ai-chat-input">Message</label>
+        <textarea id="ai-chat-input" data-ai-chat-input rows="3" placeholder="Ask about AI, security, code, or anything else…"></textarea>
+        <div class="ai-chat-composer__actions">
+          <span class="ai-chat-composer__hint">Shift + Enter for newline</span>
+          <button class="btn btn-primary ai-chat-composer__submit" type="submit" data-ai-chat-submit>Send</button>
+        </div>
+      </form>
+    </section>
+  </div>
+)}
+
+<script is:inline define:vars={{ aiConfig }}>
+  (function () {
+    const mount = document.querySelector('[data-ai-chat-shell]');
+    if (!(mount instanceof HTMLElement)) return;
+    if (mount.dataset.bound === '1') return;
+    mount.dataset.bound = '1';
+
+    const enabled = mount.dataset.enabled === '1';
+    const proxyUrl = (mount.dataset.proxyUrl || '').replace(/\/$/, '');
+    const modelStorageKey = 'allen.aiChat.model';
+    const toggle = mount.querySelector('[data-ai-chat-toggle]');
+    const panel = mount.querySelector('[data-ai-chat-panel]');
+    const closeButton = mount.querySelector('[data-ai-chat-close]');
+    const modelSelect = mount.querySelector('[data-ai-chat-model]');
+    const refreshButton = mount.querySelector('[data-ai-chat-refresh]');
+    const status = mount.querySelector('[data-ai-chat-status]');
+    const messagesRoot = mount.querySelector('[data-ai-chat-messages]');
+    const form = mount.querySelector('[data-ai-chat-form]');
+    const input = mount.querySelector('[data-ai-chat-input]');
+    const submit = mount.querySelector('[data-ai-chat-submit]');
+
+    if (
+      !(toggle instanceof HTMLButtonElement) ||
+      !(panel instanceof HTMLElement) ||
+      !(closeButton instanceof HTMLButtonElement) ||
+      !(modelSelect instanceof HTMLSelectElement) ||
+      !(refreshButton instanceof HTMLButtonElement) ||
+      !(status instanceof HTMLElement) ||
+      !(messagesRoot instanceof HTMLElement) ||
+      !(form instanceof HTMLFormElement) ||
+      !(input instanceof HTMLTextAreaElement) ||
+      !(submit instanceof HTMLButtonElement)
+    ) {
+      return;
+    }
+
+    const state = {
+      isOpen: false,
+      isLoadingModels: false,
+      isSending: false,
+      modelsLoaded: false,
+      conversation: []
+    };
+
+    const setOpen = (open) => {
+      state.isOpen = open;
+      panel.hidden = !open;
+      toggle.setAttribute('aria-expanded', open ? 'true' : 'false');
+      mount.classList.toggle('is-open', open);
+      if (open) {
+        if (!state.modelsLoaded && enabled) {
+          void loadModels();
+        }
+        window.setTimeout(() => input.focus(), 20);
+      }
+    };
+
+    const setStatus = (message, tone) => {
+      status.textContent = message;
+      status.dataset.tone = tone || 'neutral';
+    };
+
+    const setBusy = (busy) => {
+      state.isSending = busy;
+      submit.disabled = busy || !enabled;
+      input.disabled = busy || !enabled;
+      modelSelect.disabled = busy || !enabled;
+      refreshButton.disabled = busy || !enabled;
+      toggle.disabled = false;
+    };
+
+    const escapeHtml = (value) =>
+      String(value)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;');
+
+    const renderMessage = (role, content, streaming) => {
+      const article = document.createElement('article');
+      article.className = `ai-chat-message ai-chat-message--${role}`;
+
+      const bubble = document.createElement('div');
+      bubble.className = 'ai-chat-message__bubble';
+      if (streaming) {
+        bubble.classList.add('is-streaming');
+      }
+      bubble.innerHTML = escapeHtml(content || '').replace(/\n/g, '<br />');
+      article.appendChild(bubble);
+      messagesRoot.appendChild(article);
+      messagesRoot.scrollTop = messagesRoot.scrollHeight;
+      return bubble;
+    };
+
+    const readStoredModel = () => {
+      try {
+        return sessionStorage.getItem(modelStorageKey) || '';
+      } catch {
+        return '';
+      }
+    };
+
+    const writeStoredModel = (value) => {
+      try {
+        sessionStorage.setItem(modelStorageKey, value);
+      } catch {}
+    };
+
+    const applyModels = (items) => {
+      modelSelect.innerHTML = '';
+      const uniqueIds = Array.from(new Set(items.map((item) => item.id).filter(Boolean))).sort((a, b) => a.localeCompare(b));
+
+      uniqueIds.forEach((id) => {
+        const option = document.createElement('option');
+        option.value = id;
+        option.textContent = id;
+        modelSelect.appendChild(option);
+      });
+
+      const stored = readStoredModel();
+      const preferred = uniqueIds.includes(stored) ? stored : uniqueIds[0] || '';
+      modelSelect.value = preferred;
+      if (preferred) {
+        writeStoredModel(preferred);
+      }
+      state.modelsLoaded = uniqueIds.length > 0;
+    };
+
+    const loadModels = async () => {
+      if (!enabled || state.isLoadingModels) return;
+      state.isLoadingModels = true;
+      setStatus('Loading model catalog…', 'neutral');
+
+      try {
+        const response = await fetch(`${proxyUrl}/models`, {
+          method: 'GET',
+          headers: {
+            Accept: 'application/json'
+          }
+        });
+
+        if (!response.ok) {
+          throw new Error(`Model request failed: ${response.status}`);
+        }
+
+        const payload = await response.json();
+        const models = Array.isArray(payload?.data) ? payload.data : [];
+        applyModels(models);
+
+        if (models.length > 0) {
+          setStatus(`Ready · ${models.length} model${models.length === 1 ? '' : 's'} available`, 'success');
+        } else {
+          setStatus('No selectable models were returned by the relay.', 'warning');
+        }
+      } catch (error) {
+        setStatus(error instanceof Error ? error.message : 'Failed to load models.', 'error');
+      } finally {
+        state.isLoadingModels = false;
+      }
+    };
+
+    const parseEventBlock = (block, onToken) => {
+      const lines = block.split(/\r?\n/).map((line) => line.trim()).filter(Boolean);
+      for (const line of lines) {
+        if (!line.startsWith('data:')) continue;
+        const value = line.slice(5).trim();
+        if (!value) continue;
+        if (value === '[DONE]') {
+          return true;
+        }
+        try {
+          const payload = JSON.parse(value);
+          const token = payload?.choices?.[0]?.delta?.content ?? payload?.choices?.[0]?.message?.content ?? '';
+          if (token) {
+            onToken(token);
+          }
+        } catch {}
+      }
+      return false;
+    };
+
+    const streamChat = async (body, onToken) => {
+      const response = await fetch(`${proxyUrl}/chat`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Accept: 'text/event-stream'
+        },
+        body: JSON.stringify(body)
+      });
+
+      if (!response.ok) {
+        const text = await response.text();
+        throw new Error(text || `Chat request failed: ${response.status}`);
+      }
+
+      if (!response.body) {
+        throw new Error('The relay did not provide a streaming response body.');
+      }
+
+      const reader = response.body.getReader();
+      const decoder = new TextDecoder();
+      let buffer = '';
+
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) {
+          buffer += decoder.decode();
+          if (buffer.trim()) {
+            parseEventBlock(buffer, onToken);
+          }
+          break;
+        }
+
+        buffer += decoder.decode(value, { stream: true });
+        let boundary = buffer.indexOf('\n\n');
+
+        while (boundary !== -1) {
+          const block = buffer.slice(0, boundary);
+          buffer = buffer.slice(boundary + 2);
+          const finished = parseEventBlock(block, onToken);
+          if (finished) {
+            return;
+          }
+          boundary = buffer.indexOf('\n\n');
+        }
+      }
+    };
+
+    const submitChat = async () => {
+      const message = input.value.trim();
+      const model = modelSelect.value.trim();
+
+      if (!enabled) {
+        setStatus('The AI relay is not configured yet.', 'warning');
+        return;
+      }
+
+      if (!message) {
+        input.focus();
+        return;
+      }
+
+      if (!model) {
+        setStatus('Choose a model before sending.', 'warning');
+        if (!state.modelsLoaded) {
+          void loadModels();
+        }
+        return;
+      }
+
+      writeStoredModel(model);
+      state.conversation.push({ role: 'user', content: message });
+      renderMessage('user', message, false);
+      input.value = '';
+      setBusy(true);
+      setStatus(`Streaming from ${model}…`, 'neutral');
+
+      const assistantBubble = renderMessage('assistant', '', true);
+      let assistantText = '';
+
+      try {
+        await streamChat(
+          {
+            model,
+            messages: state.conversation,
+            stream: true
+          },
+          (token) => {
+            assistantText += token;
+            assistantBubble.innerHTML = escapeHtml(assistantText).replace(/\n/g, '<br />');
+            messagesRoot.scrollTop = messagesRoot.scrollHeight;
+          }
+        );
+
+        assistantBubble.classList.remove('is-streaming');
+        state.conversation.push({ role: 'assistant', content: assistantText || 'No content returned.' });
+        setStatus(`Done · ${model}`, 'success');
+      } catch (error) {
+        assistantBubble.classList.remove('is-streaming');
+        assistantBubble.innerHTML = escapeHtml(assistantText || 'The reply could not be completed.').replace(/\n/g, '<br />');
+        setStatus(error instanceof Error ? error.message : 'Chat failed.', 'error');
+      } finally {
+        setBusy(false);
+        input.focus();
+      }
+    };
+
+    toggle.addEventListener('click', () => {
+      setOpen(!state.isOpen);
+    });
+
+    closeButton.addEventListener('click', () => {
+      setOpen(false);
+    });
+
+    refreshButton.addEventListener('click', () => {
+      void loadModels();
+    });
+
+    modelSelect.addEventListener('change', () => {
+      if (modelSelect.value) {
+        writeStoredModel(modelSelect.value);
+        setStatus(`Selected ${modelSelect.value}`, 'neutral');
+      }
+    });
+
+    form.addEventListener('submit', (event) => {
+      event.preventDefault();
+      if (!state.isSending) {
+        void submitChat();
+      }
+    });
+
+    input.addEventListener('keydown', (event) => {
+      if (event.key === 'Enter' && !event.shiftKey) {
+        event.preventDefault();
+        if (!state.isSending) {
+          void submitChat();
+        }
+      }
+    });
+
+    if (enabled) {
+      setBusy(false);
+      setStatus('Open the panel to load available models.', 'neutral');
+    } else {
+      setBusy(true);
+      setStatus('The AI relay is not configured yet. Deploy the Cloudflare Worker and set PUBLIC_AI_PROXY_URL.', 'warning');
+    }
+  })();
+</script>

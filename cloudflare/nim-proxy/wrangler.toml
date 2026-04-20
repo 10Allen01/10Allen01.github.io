@@ -1,0 +1,9 @@
+name = "allen-nim-proxy"
+main = "src/index.mjs"
+compatibility_date = "2026-04-20"
+workers_dev = true
+preview_urls = true
+
+[vars]
+NVIDIA_NIM_BASE_URL = "https://integrate.api.nvidia.com/v1"
+ALLOWED_ORIGINS = "https://10allen01.github.io,http://localhost:4321,http://4aswfhakect7x2uvbcdhrpsghlnbv7d6w4n2hj7up3275336ymnimfad.onion"

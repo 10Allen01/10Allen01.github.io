@@ -33,6 +33,8 @@ jobs:
         env:
           PUBLIC_ONION_URL: ${{ vars.PUBLIC_ONION_URL }}
           PUBLIC_ONION_LABEL: ${{ vars.PUBLIC_ONION_LABEL }}
+          PUBLIC_AI_PROXY_URL: ${{ vars.PUBLIC_AI_PROXY_URL }}
+          PUBLIC_AI_CHAT_LABEL: ${{ vars.PUBLIC_AI_CHAT_LABEL }}
         run: npm run build
 
       - name: Upload Pages artifact
