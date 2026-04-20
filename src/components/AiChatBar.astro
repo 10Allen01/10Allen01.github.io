@@ -99,6 +99,15 @@ const aiConfig = siteConfig.aiAssistant;
       conversation: []
     };
 
+    const blurActiveField = () => {
+      if (document.activeElement instanceof HTMLElement) {
+        document.activeElement.blur();
+      }
+
+      input.blur();
+      modelSelect.blur();
+    };
+
     const friendlyErrorMessage = (message, fallback) => {
       const value = String(message || '').trim();
       if (!value) return fallback;
@@ -142,6 +151,7 @@ const aiConfig = siteConfig.aiAssistant;
 
     const closePanel = () => {
       if (!state.isOpen) return;
+      blurActiveField();
       setOpen(false);
       window.setTimeout(() => toggle.focus(), 20);
     };
@@ -155,7 +165,6 @@ const aiConfig = siteConfig.aiAssistant;
         if (!state.modelsLoaded && enabled) {
           void loadModels();
         }
-        window.setTimeout(() => input.focus(), 20);
       }
     };
 
@@ -239,17 +248,18 @@ const aiConfig = siteConfig.aiAssistant;
       state.modelsLoaded = uniqueIds.length > 0;
     };
 
-    const loadModels = async () => {
+    const loadModels = async (force = false) => {
       if (!enabled || state.isLoadingModels) return;
       state.isLoadingModels = true;
-      setStatus('Connecting…', 'neutral');
+      setStatus(force ? 'Refreshing…' : 'Connecting…', 'neutral');
 
       try {
-        const response = await fetch(`${proxyUrl}/models`, {
+        const response = await fetch(force ? `${proxyUrl}/models?refresh=${Date.now()}` : `${proxyUrl}/models`, {
           method: 'GET',
           headers: {
             Accept: 'application/json'
-          }
+          },
+          cache: 'no-store'
         });
 
         const payload = await response.json().catch(() => null);
@@ -448,7 +458,8 @@ const aiConfig = siteConfig.aiAssistant;
     });
 
     refreshButton.addEventListener('click', () => {
-      void loadModels();
+      blurActiveField();
+      void loadModels(true);
     });
 
     modelSelect.addEventListener('change', () => {
@@ -475,9 +486,11 @@ const aiConfig = siteConfig.aiAssistant;
     });
 
     if (enabled) {
+      setOpen(false);
       setBusy(false);
       setStatus('Ready', 'neutral');
     } else {
+      setOpen(false);
       setBusy(true);
       setStatus('The assistant is unavailable right now.', 'warning');
     }

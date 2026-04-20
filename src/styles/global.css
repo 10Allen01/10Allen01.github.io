@@ -898,6 +898,7 @@ body.visit-shield-open {
   -webkit-backdrop-filter: blur(14px);
   cursor: pointer;
   transition: opacity 180ms var(--ease), transform 180ms var(--ease);
+  touch-action: manipulation;
 }
 
 .ai-chat-toggle__dot {
@@ -965,6 +966,7 @@ body.visit-shield-open {
   font-size: 1.35rem;
   line-height: 1;
   cursor: pointer;
+  touch-action: manipulation;
 }
 
 .ai-chat-panel__controls {
@@ -996,12 +998,14 @@ body.visit-shield-open {
 .ai-chat-panel__field select {
   min-height: 42px;
   padding: 0 12px;
+  touch-action: manipulation;
 }
 
 .ai-chat-panel__refresh {
   min-width: 88px;
   min-height: 42px;
   justify-content: center;
+  touch-action: manipulation;
 }
 
 .ai-chat-panel__status {
@@ -1086,6 +1090,7 @@ body.visit-shield-open {
   resize: vertical;
   padding: 12px 13px;
   line-height: 1.6;
+  overscroll-behavior: contain;
 }
 
 .ai-chat-composer__actions {
@@ -1105,6 +1110,7 @@ body.visit-shield-open {
   min-width: 88px;
   min-height: 40px;
   justify-content: center;
+  touch-action: manipulation;
 }
 
 @keyframes aiChatCursorBlink {
