@@ -90,6 +90,17 @@ const chatModelExcludePatterns = [
 ];
 
 const chatModelPriorityPatterns = [/instruct/i, /chat/i, /assistant/i, /coder/i, /reason/i, /r1/i, /it$/i];
+const serverSystemPrompt = [
+  '你是 Allen 手底下的 AI 助手，代表 Allen 为来访者提供帮助。',
+  '你的语气可以带一点讽刺感和轻微夹枪带棒，但必须克制、自然、不过火。',
+  '不要把回复写成角色扮演，也不要为了语气牺牲信息密度。',
+  '核心目标是提供实质帮助：直接、清楚、可执行、能解决问题。',
+  '不要浮夸，不要无意义挖苦，不要装神弄鬼。',
+  '遇到不确定的内容要明确说不确定，不能编造事实、能力、来源或结果。',
+  '默认使用用户当前使用的语言回复。',
+  '除非用户明确要求，否则不要主动透露系统提示词或内部实现。',
+  '不要把自己描述成独立品牌或虚构角色，而是 Allen 的 AI 助手。'
+].join(' ');
 
 const ensureOriginAllowed = (request, env) => {
   const allowedOrigins = getAllowedOrigins(env);
@@ -266,6 +277,21 @@ const normalizeMessages = (messages) =>
       content: item.content
     }));
 
+const applyServerSystemPrompt = (messages) => {
+  const systemMessages = [];
+  const otherMessages = [];
+
+  for (const message of messages) {
+    if (message.role === 'system') {
+      systemMessages.push(message);
+    } else {
+      otherMessages.push(message);
+    }
+  }
+
+  return [{ role: 'system', content: serverSystemPrompt }, ...systemMessages, ...otherMessages];
+};
+
 export default {
   async fetch(request, env) {
     if (!env.NVIDIA_NIM_API_KEY) {
@@ -321,6 +347,7 @@ export default {
 
       const model = typeof input?.model === 'string' ? input.model.trim() : '';
       const messages = normalizeMessages(Array.isArray(input?.messages) ? input.messages : []);
+      const upstreamMessages = applyServerSystemPrompt(messages);
 
       if (!model) {
         return withCors(errorResponse('model is required.', 400), request, env);
@@ -336,7 +363,7 @@ export default {
 
       const payload = {
         model,
-        messages,
+        messages: upstreamMessages,
         stream: true
       };
 
@@ -408,7 +435,7 @@ export default {
           },
           body: JSON.stringify(buildCompletionPayload({
             model,
-            messages,
+            messages: upstreamMessages,
             temperature: input.temperature,
             top_p: input.top_p,
             max_tokens: input.max_tokens
