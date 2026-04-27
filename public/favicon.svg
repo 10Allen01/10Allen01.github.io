@@ -1,11 +1,22 @@
 <svg width="128" height="128" viewBox="0 0 128 128" fill="none" xmlns="http://www.w3.org/2000/svg">
-  <rect width="128" height="128" rx="36" fill="url(#bg)"/>
-  <path d="M31 88C42 67 53 48 64 31C75 48 86 67 97 88H82L74 72H54L46 88H31Z" fill="#EAFBFF"/>
-  <path d="M57 62H71L64 49L57 62Z" fill="#0B1A27" opacity="0.35"/>
+  <rect width="128" height="128" rx="34" fill="url(#bg)"/>
+  <circle cx="92" cy="31" r="14" fill="#F2B35D"/>
+  <path d="M31 106L60 49C62 45 66 45 68 49L97 106H81L75 92H53L47 106H31ZM59 79H70L64 67L59 79Z" fill="#1D3340"/>
+  <g fill="#23705A">
+    <path d="M72 37C58 30 47 29 33 36C49 37 61 40 72 37Z"/>
+    <path d="M72 37C62 25 52 19 38 18C51 27 62 34 72 37Z"/>
+    <path d="M72 37C76 22 85 14 101 10C93 24 85 34 72 37Z"/>
+    <path d="M72 37C87 32 101 35 113 45C97 44 84 41 72 37Z"/>
+    <path d="M72 37C82 27 95 23 111 26C96 31 85 36 72 37Z"/>
+  </g>
+  <path d="M63 86C61 68 64 53 72 37" stroke="#805536" stroke-width="8" stroke-linecap="round"/>
+  <path d="M19 97C32 88 45 88 58 97C70 105 83 105 109 89" stroke="#0D6F7A" stroke-opacity="0.45" stroke-width="6" stroke-linecap="round"/>
+  <path d="M16 109C31 101 44 101 59 109C74 117 88 116 112 103" stroke="#FFF8EB" stroke-width="6" stroke-linecap="round"/>
   <defs>
-    <linearGradient id="bg" x1="18" y1="14" x2="110" y2="118" gradientUnits="userSpaceOnUse">
-      <stop stop-color="#7FE4FF"/>
-      <stop offset="1" stop-color="#16527C"/>
+    <linearGradient id="bg" x1="12" y1="10" x2="118" y2="122" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#FFF4DE"/>
+      <stop offset="0.52" stop-color="#D7EBE7"/>
+      <stop offset="1" stop-color="#B97A42"/>
     </linearGradient>
   </defs>
 </svg>

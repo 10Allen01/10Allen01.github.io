@@ -9,10 +9,16 @@ const tags = getAllTags(posts);
 
 <BaseLayout title="Archive" description="Complete index of published writing and visual work.">
   <section class="shell page-intro">
-    <div class="grid">
+    <div class="page-intro__ambient" aria-hidden="true">
+      <span></span>
+      <span></span>
+      <span></span>
+    </div>
+    <div class="page-intro__grid page-intro__grid--solo">
       <div class="page-intro__copy">
         <span class="eyebrow">Index</span>
         <h1 class="title-1">Archive</h1>
+        <p class="summary">A cleaner shore for notes, tools, security writeups, and everything that refuses to stay neatly categorized.</p>
       </div>
     </div>
   </section>

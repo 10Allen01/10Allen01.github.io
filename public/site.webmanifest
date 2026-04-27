@@ -1,11 +1,11 @@
 {
   "name": "Allen",
   "short_name": "Allen",
-  "description": "A calm, cool-toned personal blog by Allen.",
+  "description": "A coastal personal archive by Allen.",
   "start_url": ".",
   "display": "standalone",
-  "background_color": "#08131f",
-  "theme_color": "#08131f",
+  "background_color": "#f7efe3",
+  "theme_color": "#f7efe3",
   "icons": [
     {
       "src": "favicon.svg",

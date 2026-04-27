@@ -7,7 +7,12 @@ const sections = Object.entries(sectionMeta);
 
 <BaseLayout title="About" description="About the author.">
   <section class="shell page-intro">
-    <div class="grid">
+    <div class="page-intro__ambient" aria-hidden="true">
+      <span></span>
+      <span></span>
+      <span></span>
+    </div>
+    <div class="page-intro__grid page-intro__grid--solo">
       <div class="page-intro__copy">
         <span class="eyebrow">About</span>
         <h1 class="title-1">Hello, I'm Allen.</h1>
@@ -17,23 +22,24 @@ const sections = Object.entries(sectionMeta);
   </section>
 
   <section class="shell section">
-    <div class="article-prose" style="padding-top: 0;">
+    <div class="article-prose article-prose--panel">
       <p>
         Welcome to my personal archive. This site serves as a public notebook where I document my journey in software development and security research. It's built to be a fast, accessible, and structured place to share what I learn.
       </p>
       
-      <h2 class="title-2" style="margin: 2em 0 1em;">What I write about</h2>
+      <h2 class="title-2">What I write about</h2>
       
-      <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 24px; margin-top: 32px;">
+      <div class="topic-grid">
         {sections.map(([id, meta]) => (
-          <a href={withBase(`/blog/?section=${id}`)} style="display: block; padding: 24px; border: 1px solid var(--border); border-radius: 8px; background: var(--surface-1); transition: border-color var(--dur) var(--ease);">
-            <h3 class="title-2" style="font-size: 1.2rem; margin: 0 0 8px;">{meta.label}</h3>
-            <p style="margin: 0; color: var(--text-2); font-size: 0.95rem; line-height: 1.6;">{meta.description}</p>
+          <a class="topic-card" href={withBase(`/blog/?section=${id}`)}>
+            <span class="topic-card__index">{id}</span>
+            <h3 class="title-2">{meta.label}</h3>
+            <p>{meta.description}</p>
           </a>
         ))}
       </div>
 
-      <h2 class="title-2" style="margin: 2em 0 1em;">Get in touch</h2>
+      <h2 class="title-2">Get in touch</h2>
       <p>
         If you want to connect, you can find me on <a href="https://github.com/10Allen01">GitHub</a> or <a href="https://www.instagram.com/sore.nvoss/">Instagram</a>.
       </p>

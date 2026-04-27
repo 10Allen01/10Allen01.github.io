@@ -20,21 +20,47 @@ const sections = Object.entries(sectionMeta).map(([key, meta]) => {
 
 <BaseLayout>
   <section class="shell page-intro">
-    <div class="grid">
+    <div class="page-intro__ambient" aria-hidden="true">
+      <span></span>
+      <span></span>
+      <span></span>
+    </div>
+    <div class="page-intro__grid">
       <div class="page-intro__copy">
         <span class="eyebrow">{siteConfig.hero.eyebrow}</span>
         <h1 class="title-1">{siteConfig.hero.title}</h1>
         <p class="summary">{siteConfig.hero.summary}</p>
-        
-        <div style="margin-top: 32px; display: flex; gap: 16px;">
+
+        <div class="hero-actions">
           <a class="btn btn-primary" href={withBase('/blog/')}>Archive</a>
           <a class="btn btn-outline" href={withBase('/about/')}>About Me</a>
         </div>
       </div>
+
+      <aside class="coast-panel" aria-label="Site focus">
+        <div class="coast-panel__orb" aria-hidden="true"></div>
+        <div class="coast-panel__line">
+          <span>Signal</span>
+          <strong>Security</strong>
+        </div>
+        <div class="coast-panel__line">
+          <span>Current</span>
+          <strong>AI systems</strong>
+        </div>
+        <div class="coast-panel__line">
+          <span>Shore</span>
+          <strong>Practical code</strong>
+        </div>
+        <div class="coast-panel__tide" aria-hidden="true">
+          <span></span>
+          <span></span>
+          <span></span>
+        </div>
+      </aside>
     </div>
   </section>
 
-  <section class="shell section">
+  <section class="shell section section--featured">
     <SectionHeading eyebrow="Featured" title="Latest post" />
     
     {featuredPost ? (
@@ -63,12 +89,13 @@ const sections = Object.entries(sectionMeta).map(([key, meta]) => {
   <section class="shell section">
     <SectionHeading eyebrow="Categories" title="Browse by topic" />
 
-    <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 24px;">
+    <div class="topic-grid">
       {sections.map((sec) => (
-        <a href={withBase(`/blog/?section=${sec.id}`)} style="display: flex; flex-direction: column; padding: 32px; background: var(--surface-1); border: 1px solid var(--border); border-radius: 12px; transition: border-color var(--dur) var(--ease);">
-          <h3 class="title-2" style="font-size: 1.4rem; margin-bottom: 12px;">{sec.label}</h3>
-          <p style="color: var(--text-2); font-size: 0.95rem; margin-bottom: 24px; line-height: 1.6; flex: 1; margin-top: 0;">{sec.description}</p>
-          <span style="display: inline-block; color: var(--text-3); font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.05em; font-weight: 500;">
+        <a class="topic-card" href={withBase(`/blog/?section=${sec.id}`)}>
+          <span class="topic-card__index">{sec.id}</span>
+          <h3 class="title-2">{sec.label}</h3>
+          <p>{sec.description}</p>
+          <span class="topic-card__count">
             {sec.count} {sec.count === 1 ? 'post' : 'posts'}
           </span>
         </a>

@@ -65,7 +65,7 @@ const cspPolicy = [
     <ViewTransitions />
     <title>{pageTitle}</title>
     <meta name="description" content={description} />
-    <meta name="theme-color" content="#f9fbff" />
+    <meta name="theme-color" content="#f7efe3" />
     <meta name="referrer" content="no-referrer" />
     <meta http-equiv="Content-Security-Policy" content={cspPolicy} />
     <link rel="canonical" href={canonicalUrl} />
@@ -264,20 +264,27 @@ const cspPolicy = [
   <body class:list={['site-shell', pageClass, musicBarOn && 'site-shell--music-bar']}>
     <div id="entry-loader" class="entry-loader" aria-hidden="true">
       <div class="entry-loader__wash"></div>
-      <div class="entry-loader__aurora"></div>
-      <div class="entry-loader__grid"></div>
+      <div class="entry-loader__sunset"></div>
+      <div class="entry-loader__shore"></div>
       <div class="entry-loader__grain"></div>
       <div class="entry-loader__core">
-        <span class="entry-loader__halo"></span>
-        <span class="entry-loader__ring entry-loader__ring--outer"></span>
-        <span class="entry-loader__ring entry-loader__ring--inner"></span>
-        <span class="entry-loader__spark entry-loader__spark--a"></span>
-        <span class="entry-loader__spark entry-loader__spark--b"></span>
-        <span class="entry-loader__spark entry-loader__spark--c"></span>
-        <span class="entry-loader__pulse"></span>
-        <span class="entry-loader__brand">{siteConfig.title}</span>
-        <span class="entry-loader__subtitle">Digital archive · Security · AI · Code</span>
-        <span class="entry-loader__beam"></span>
+        <span class="entry-loader__glow"></span>
+        <svg class="entry-loader__logo" viewBox="0 0 128 128" focusable="false">
+          <circle class="entry-loader__logo-sun" cx="91" cy="31" r="12" />
+          <path class="entry-loader__logo-a" d="M31 104L60 48C62 44 66 44 68 48L96 104H80L74 91H54L48 104H31ZM59 78H69L64 67L59 78Z" />
+          <g class="entry-loader__logo-palm">
+            <path class="entry-loader__logo-trunk" d="M63 85C61 67 64 52 73 36" />
+            <path class="entry-loader__logo-frond entry-loader__logo-frond--a" d="M73 36C59 29 47 28 33 35C49 36 62 39 73 36Z" />
+            <path class="entry-loader__logo-frond entry-loader__logo-frond--b" d="M73 36C62 24 52 18 37 18C51 27 62 34 73 36Z" />
+            <path class="entry-loader__logo-frond entry-loader__logo-frond--c" d="M73 36C76 21 85 13 101 9C93 23 85 33 73 36Z" />
+            <path class="entry-loader__logo-frond entry-loader__logo-frond--d" d="M73 36C88 31 101 34 113 44C97 43 84 40 73 36Z" />
+            <path class="entry-loader__logo-frond entry-loader__logo-frond--e" d="M73 36C82 26 95 22 111 25C96 30 85 35 73 36Z" />
+          </g>
+          <path class="entry-loader__logo-wave entry-loader__logo-wave--back" d="M20 96C33 87 45 87 58 96C70 104 82 104 108 88" />
+          <path class="entry-loader__logo-wave entry-loader__logo-wave--front" d="M16 108C31 100 44 100 59 108C74 116 88 115 111 102" />
+        </svg>
+        <span class="entry-loader__subtitle">Coastal archive · security · code</span>
+        <span class="entry-loader__progress"><span></span></span>
       </div>
     </div>
     <SiteHeader />

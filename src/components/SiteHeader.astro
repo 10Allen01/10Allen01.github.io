@@ -17,7 +17,26 @@ const isActive = (href: string) => {
 <header class="site-header">
   <div class="shell site-header__inner">
     <a class="site-brand" href={withBase('/')}>
-      {siteConfig.title}
+      <span class="brand-mark" aria-hidden="true">
+        <svg class="brand-mark__svg" viewBox="0 0 96 96" focusable="false">
+          <circle class="brand-mark__sun" cx="69" cy="25" r="10" />
+          <path class="brand-mark__tide brand-mark__tide--back" d="M17 76C26 69 34 69 43 76C52 83 61 83 79 70" />
+          <path class="brand-mark__letter" d="M25 82L47 39C48 37 51 37 52 39L72 82H60L56 72H42L37 82H25ZM46 63H53L50 55L46 63Z" />
+          <g class="brand-mark__palm">
+            <path class="brand-mark__trunk" d="M49 67C48 55 50 44 57 33" />
+            <path class="brand-mark__frond brand-mark__frond--a" d="M57 33C48 27 38 26 27 31C39 33 48 35 57 33Z" />
+            <path class="brand-mark__frond brand-mark__frond--b" d="M57 33C50 23 42 18 30 17C40 24 48 30 57 33Z" />
+            <path class="brand-mark__frond brand-mark__frond--c" d="M57 33C60 21 66 14 78 10C72 21 66 29 57 33Z" />
+            <path class="brand-mark__frond brand-mark__frond--d" d="M57 33C68 29 78 31 87 39C75 38 66 36 57 33Z" />
+            <path class="brand-mark__frond brand-mark__frond--e" d="M57 33C63 24 73 20 85 21C74 26 66 31 57 33Z" />
+          </g>
+          <path class="brand-mark__tide brand-mark__tide--front" d="M16 84C26 78 36 78 46 84C56 90 65 90 80 80" />
+        </svg>
+      </span>
+      <span class="site-brand__copy">
+        <span class="site-brand__name">{siteConfig.title}</span>
+        <span class="site-brand__tagline">Coastal systems</span>
+      </span>
     </a>
 
     <nav class="site-nav" aria-label="Main navigation">
