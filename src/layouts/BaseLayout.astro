@@ -69,7 +69,8 @@ const cspPolicy = [
     <meta name="referrer" content="no-referrer" />
     <meta http-equiv="Content-Security-Policy" content={cspPolicy} />
     <link rel="canonical" href={canonicalUrl} />
-    <link rel="icon" type="image/svg+xml" href={withBase('/favicon.svg')} />
+    <link rel="icon" type="image/svg+xml" href={withBase(`/favicon-palm.svg?v=${buildId}`)} />
+    <link rel="shortcut icon" href={withBase(`/favicon-palm.svg?v=${buildId}`)} />
     <link rel="manifest" href={withBase('/site.webmanifest')} />
     <meta name="allen-build-id" content={buildId} />
     <meta property="og:type" content="website" />
@@ -265,7 +266,7 @@ const cspPolicy = [
     <div id="entry-loader" class="entry-loader" aria-hidden="true">
       <div class="entry-loader__wash"></div>
       <div class="entry-loader__sunset"></div>
-      <div class="entry-loader__shore"></div>
+      <div class="entry-loader__sand"></div>
       <div class="entry-loader__grain"></div>
       <div class="entry-loader__core">
         <span class="entry-loader__glow"></span>
@@ -283,7 +284,7 @@ const cspPolicy = [
           <path class="entry-loader__logo-wave entry-loader__logo-wave--back" d="M20 96C33 87 45 87 58 96C70 104 82 104 108 88" />
           <path class="entry-loader__logo-wave entry-loader__logo-wave--front" d="M16 108C31 100 44 100 59 108C74 116 88 115 111 102" />
         </svg>
-        <span class="entry-loader__subtitle">Coastal archive · security · code</span>
+        <span class="entry-loader__subtitle">Digital archive · Security · AI · Code</span>
         <span class="entry-loader__progress"><span></span></span>
       </div>
     </div>
