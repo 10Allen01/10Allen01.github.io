@@ -1,4 +1,4 @@
-name: Deploy Allen to GitHub Pages
+name: Publish
 
 on:
   push:
@@ -17,7 +17,7 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Setup Pages
+      - name: Setup
         uses: actions/configure-pages@v5
 
       - name: Setup Node
@@ -31,13 +31,11 @@ jobs:
 
       - name: Build site
         env:
-          PUBLIC_ONION_URL: ${{ vars.PUBLIC_ONION_URL }}
-          PUBLIC_ONION_LABEL: ${{ vars.PUBLIC_ONION_LABEL }}
           PUBLIC_AI_PROXY_URL: ${{ vars.PUBLIC_AI_PROXY_URL }}
           PUBLIC_AI_CHAT_LABEL: ${{ vars.PUBLIC_AI_CHAT_LABEL }}
         run: npm run build
 
-      - name: Upload Pages artifact
+      - name: Upload artifact
         uses: actions/upload-pages-artifact@v3
         with:
           path: dist
@@ -52,6 +50,6 @@ jobs:
       pages: write
       id-token: write
     steps:
-      - name: Deploy to GitHub Pages
+      - name: Publish
         id: deployment
         uses: actions/deploy-pages@v4

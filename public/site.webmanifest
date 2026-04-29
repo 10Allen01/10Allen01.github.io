@@ -1,7 +1,7 @@
 {
   "name": "Allen",
   "short_name": "Allen",
-  "description": "A calm, cool-toned personal blog by Allen.",
+  "description": "Allen.",
   "start_url": ".",
   "display": "standalone",
   "background_color": "#f7efe3",
